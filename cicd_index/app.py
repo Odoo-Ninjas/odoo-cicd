@@ -406,14 +406,13 @@ def data_branches():
 
 @app.route("/data/instances", methods=["GET", "POST"])
 def data_variants():
-    if not request.args.get('git_branch'):
-        return jsonify({
-            "status": "success",
-            "total": 0,
-            "records": []
-        })
+    _filter = {}
+    if request.args.get('git_branch', None):
+        _filter['git_branch'] = request.args['git_branch']
+    if request.args.get('name', None):
+        _filter['name'] = request.args['name']
 
-    sites = _format_dates_in_records(list(db.sites.find({'git_branch': request.args['git_branch']})))
+    sites = _format_dates_in_records(list(db.sites.find(_filter)))
     sites = sorted(sites, key=lambda x: x.get('updated', x.get('last_access', arrow.get('1980-04-04'))), reverse=True)
     # get last update times
     for site in sites:
@@ -539,3 +538,18 @@ def _start_cicd():
     response = make_response(render_template('start_cicd.html'))
     response.set_cookie('delegator-path', name)
     return response
+
+def get_setting(key, default=None):
+    config = db.config.find_one({'key': key})
+    if not config:
+        return default
+    return config['value']
+
+
+def store_setting(key, value):
+    db.sites.update_one({
+        'key': key,
+    }, {'$set': {
+        'value': value,
+    }
+    }, upsert=True)

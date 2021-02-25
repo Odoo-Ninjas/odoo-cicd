@@ -8,6 +8,7 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <link rel="stylesheet" href="https://cdn.webix.com/edge/webix.css" type="text/css" charset="utf-8">
         <script src="https://cdn.webix.com/edge/webix.js" type="text/javascript" charset="utf-8"></script>
+        <script src="/cicd/static/app.js" type="text/javascript" charset="utf-8"></script>
     </head>
     <style>
 span.webix_icon {
@@ -17,28 +18,12 @@ span.webix_icon {
 
     <body>
         <div style="display: none;">
-            <div id="list-item-branch">
-                <div>
-                    <b>#git_branch#</b>
-                    <br/>
-                    #note#
-                    <div><b>Author:</b>#initiator#</div>
-                    <div style='display: flex;'>
-                        <div style="flex-basis: 50%;" class="show-settings"><span class="webix_icon wxi-dots"></span></div>
-                        <div style="flex-basis: 50%;" class="reset"><span class="webix_icon wxi-sync"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="branch-details">
+            <div id="instance-template">
                 <div>
                     <table>
                         <tr>
-                            <th>Title:</th>
-                            <td>#title#</td>
-                        </tr>
-                        <tr>
-                            <th>Dump:</th>
-                            <td>#dump#</td>
+                            <th>Name</th>
+                            <td>#name#</td>
                         </tr>
                         <tr>
                             <th>Description:</th>
@@ -51,14 +36,9 @@ span.webix_icon {
 
         <script>
 
-        function reload_sites() {
-            var branch = $$("list-branches").getSelectedItem().git_branch;
-            var table = $$("table-sites");
-            table.clearAll();
-            table.load("/cicd/data/instances?git_branch=" + branch);
-
-            webix.ajax().get('/cicd/data/branches?git_branch=' + branch).then(function(data) {
-                var template = $$('webix-branch-details');
+        function reload_details(name) {
+            webix.ajax().get('/cicd/data/instances?name=' + name).then(function(data) {
+                var template = $$('webix-instance-details');
                 template.data = data.json()[0];
                 template.refresh();
             });
@@ -110,107 +90,27 @@ span.webix_icon {
                 type: 'wide',
                 cols: [
                     {
-                        rows: [
-                            {
-                                view: "template",
-                                type: "header",
-                                template: "CICD Feature Branches"
-                            },
-                            {
-                                id: 'list-branches',
-                                url: '/cicd/data/branches',
-                                view: "list",
-                                type: {
-                                    height: 120,
-                                    width: 450,
-                                },
-                                template: "html->list-item-branch",
-                                select: true,
-                                on: {
-                                    onSelectChange: function () {
-                                        reload_sites();
-                                    }
-                                },
-                                onClick:
-                                {
-                                    "reset": function() {
-                                        var branch = this.getSelectedItem().git_branch;
-                                        if (!branch) { alert("Please select a branch!") };
-                                        show_reset_form(branch);
-                                    },
-                                    "show-settings": function(ev, id){
-                                        webix.ajax().get('/cicd/data/branches', {'_id': this.getSelectedItem()}).then(function(data) {
-                                            data = data.json();
-                                            var form = webix.ui({
-                                                view: "window", 
-                                                position: 'center',
-                                                modal: true,
-                                                head: "Settings",
-                                                width: 550,
-                                                body: {
-                                                    view: 'form',
-                                                    complexData: true,
-                                                    elements: [
-                                                        { view:"textarea", name: 'note', label:"Note" },
-                                                        // { view:"text", name: 'limit_instanes', label:"Limit Instances" },
-                                                        { view:"combo", name: 'dump', label:"Dump", options: dumps, },
-                                                        {
-                                                            cols:[
-                                                                { view:"button", value:"OK", css:"webix_primary", click: function() { 
-                                                                    var values = this.getParentView().getFormView().getValues();
-                                                                    webix.ajax().post('/cicd/update/branch', values).then(function() {
-                                                                        form.hide();
-                                                                        // TODO optimize
-                                                                        window.location.reload()
-                                                                        //var list = $$('list-branches');
-                                                                        //list.load(list.url);
-                                                                    });
-                                                                    }
-                                                                },
-                                                                { view:"button", value:"Cancel", click: function() {
-                                                                    form.hide();
-                                                                }}
-                                                            ]
-                                                        }
-                                                    ],
-                                                    on: {
-                                                        'onSubmit': function() {
-                                                        },
-                                                    }
-                                                }
-                                            });
-                                            form.getChildViews()[1].setValues(data[0]);
-                                            form.show();
-                                        });
-                                        return false;
-                                    }
-                                },
-                            }
-                        ]
-                    },
-                    {
                         view: 'scrollview',
+                        scroll: 'y',
                         body: {
                             padding: 10,
-                            type: 'clean',
                             rows: [
                                 {
                                     rows: [
-                                        {
-                                            id: "webix-branch-details",
-                                            view: "template",
-                                            type: "header",
-                                            template: "html->branch-details",
-                                            height: 200,
-                                        },
+                                            {
+                                                view: "template",
+                                                type: "header",
+                                                template: "CICD Feature Branches"
+                                            },
                                         {
                                             id: 'table-sites',
                                             view: "datatable",
-                                            select: true,
-                                            //autoConfig: true,
+                                            select: 'row',
+                                            autoConfig: true,
+                                            url: '/cicd/data/instances',
                                             editable: true,
                                             data: [],
-                                            leftSplit: 2,
+                                            leftSplit: 0,
                                             autowidth: true,
                                             autoheight: true,
                                             on: {
@@ -219,6 +119,9 @@ span.webix_icon {
                                                     data['_id'] = $$("table-branches").getSelectedItem()._id;
                                                     data[editor.column] = state.value;
                                                     webix.ajax().post('/cicd/update/site', data);
+                                                },
+                                                onSelectChange:function(){
+                                                    reload_details(this.getSelectedItem().name);
                                                 },
                                                 onItemClick: function(id, e, trg) {
                                                     if (id.column === 'start_instance') {
@@ -232,32 +135,55 @@ span.webix_icon {
                                                             webix.message("Restarted: " + res.json().containers.join(','), "info");
                                                         });
                                                     }
+                                                    else if (id.column == 'reset') {
+                                                        var branch = this.getSelectedItem().git_branch;
+                                                        if (!branch) { alert("Please select a branch!") };
+                                                        show_reset_form(branch);
+                                                    }
+                                                    else if (id.column == 'settings') {
+                                                        var site_name = this.getSelectedItem().name;
+                                                        if (!site_name) { alert("Please select a branch!") };
+                                                        show_settings(webix, site_name);
+                                                    }
                                                 }
                                             },
                                             columns:[
-                                                { id: 'start_instance', header: '', width: 100, template: "<span class='webix_icon wxi-folder-open'></span>"},
+                                                { id: 'start_instance', header: '', template: "<span class='webix_icon wxi-folder-open'></span>"},
+                                                //{ id: 'restart_docker', header: '', template: "<span class='webix_icon wxi-folder-open'>Restart</span>"},
+                                                //{ id: 'reset', header: '', template: "<span class='webix_icon wxi-sync'></span>"},
+                                                //{ id: 'settings', header: '', template: "<span class='webix_icon wxi-dots'></span>"},
                                                 // { id: 'run_console', header: '', width: 150, template: "<a href='/'>Console</a>"},
-                                                { id: 'name', header: 'Name', width: 150},
-                                                { id: 'key', header: 'Type', width: 100},
-                                                { id: 'update_in_progress', header: 'Building', width: 100, template: "{common.checkbox()}"},
-                                                { id: 'restart_docker', header: 'Restart Docker', width: 100, template: "<span class='webix_icon wxi-sync'></span>"},
-                                                { id: 'updated', header: 'Updated', width: 150},
-                                                { id: 'duration', header: 'Duration [s]', width: 100},
-                                                { id: 'desc', header: 'Description', width: 300, fillspace: true},
-                                                { id: 'author', header: 'Author', width: 100},
-                                                { id: 'dump_name', header: 'Dump Name', width: 270},
-                                                { id: 'dump_date', header: 'Dump Date', width: 270},
-                                                { id: 'git_sha', header: 'SHA', width: 150},
+                                                { id: 'name', header: 'Name'},
+                                                { id: 'key', header: 'Type'},
+                                                { id: 'update_in_progress', header: 'Building', template: "{common.checkbox()}"},
+                                                //{ id: 'restart_docker', header: 'Restart Docker', template: "<span class='webix_icon wxi-sync'></span>"},
+                                                { id: 'updated', header: 'Updated'},
+                                                { id: 'duration', header: 'Duration [s]'},
+                                                { id: 'author', header: 'Author', },
+                                                { id: 'dump_name', header: 'Dump Name', },
+                                                { id: 'dump_date', header: 'Dump Date', },
+                                                { id: 'git_sha', header: 'SHA', },
                                             ],
                                         },
                                     ]
                                 }
                             ]
                         }
-                    }
+                    },
+                    {
+                        view: 'resizer',
+                    },
+                    {
+                        id: "webix-instance-details",
+                        maxWidth: 250,
+                        view: "template",
+                        type: "header",
+                        template: "html->instance-template",
+                    },
                 ]
             });
 
+            webix.ui.fullScreen();
         });
     </script>
     </body>
