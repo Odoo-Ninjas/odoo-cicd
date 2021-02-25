@@ -14,20 +14,33 @@
 span.webix_icon {
     cursor: pointer;
 }
+        table.data tr th {text-align: left;}
     </style>
 
     <body>
         <div style="display: none;">
             <div id="instance-template">
                 <div>
-                    <table>
+                    <table class='data'>
                         <tr>
-                            <th>Name</th>
+                            <th style="min-width: 200px;">Name</th>
                             <td>#name#</td>
                         </tr>
                         <tr>
-                            <th>Description:</th>
+                            <th>Title</th>
+                            <td>#title#</td>
+                        </tr>
+                        <tr>
+                            <th>Last Commit Message</th>
                             <td>#desc#</td>
+                        </tr>
+                        <tr>
+                            <th>Git SHA</th>
+                            <td>#git_sha#</td>
+                        </tr>
+                        <tr>
+                            <th>Date registered</th>
+                            <td>#date_registered#</td>
                         </tr>
                     </table>
                 </div>
@@ -36,11 +49,68 @@ span.webix_icon {
 
         <script>
 
+            function restart() {
+            }
+            function rebuild() {
+            }
+
+            function settings(){
+                var id = $$("table-sites").getSelectedId().id
+                webix.ajax().get('/cicd/data/instances', {'_id': id}).then(function(data) {
+                    data = data.json();
+                    debugger;
+                    var form = webix.ui({
+                        view: "window", 
+                        position: 'center',
+                        modal: true,
+                        head: "Settings",
+                        width: 550,
+                        body: {
+                            view: 'form',
+                            complexData: true,
+                            elements: [
+                                { view:"textarea", name: 'note', label:"Note" },
+                                // { view:"text", name: 'limit_instanes', label:"Limit Instances" },
+                                { view:"combo", name: 'dump', label:"Dump", options: dumps, },
+                                {
+                                    cols:[
+                                        { view:"button", value:"OK", css:"webix_primary", click: function() { 
+                                            var values = this.getParentView().getFormView().getValues();
+                                            webix.ajax().post('/cicd/update/branch', values).then(function() {
+                                                form.hide();
+                                                // TODO optimize
+                                                window.location.reload()
+                                                //var list = $$('list-branches');
+                                                //list.load(list.url);
+                                            });
+                                            }
+                                        },
+                                        { view:"button", value:"Cancel", click: function() {
+                                            form.hide();
+                                        }}
+                                    ]
+                                }
+                            ],
+                            on: {
+                                'onSubmit': function() {
+                                },
+                            }
+                        }
+                    });
+                    debugger;
+                    form.getChildViews()[1].setValues(data[0]);
+                    form.show();
+                });
+                return false;
+            }
+
         function reload_details(name) {
             webix.ajax().get('/cicd/data/instances?name=' + name).then(function(data) {
                 var template = $$('webix-instance-details');
                 template.data = data.json()[0];
                 template.refresh();
+                template.show();
+                $$('site-toolbar').show();
             });
         }
         var dumps_promise = webix.ajax().get("/cicd/possible_dumps");
@@ -90,9 +160,6 @@ span.webix_icon {
                 type: 'wide',
                 cols: [
                     {
-                        view: 'scrollview',
-                        scroll: 'y',
-                        body: {
                             padding: 10,
                             rows: [
                                 {
@@ -105,14 +172,16 @@ span.webix_icon {
                                         {
                                             id: 'table-sites',
                                             view: "datatable",
+                                            navigation: true,
+                                            headerRowHeight: 60,
+                                            rowHeight: 40,
                                             select: 'row',
                                             autoConfig: true,
                                             url: '/cicd/data/instances',
                                             editable: true,
                                             data: [],
                                             leftSplit: 0,
-                                            autowidth: true,
-                                            autoheight: true,
+                                            scrollX: false,
                                             on: {
                                                 onAfterEditStop: function(state, editor, ignoreUpdate) {
                                                     var data = {};
@@ -154,32 +223,43 @@ span.webix_icon {
                                                 //{ id: 'settings', header: '', template: "<span class='webix_icon wxi-dots'></span>"},
                                                 // { id: 'run_console', header: '', width: 150, template: "<a href='/'>Console</a>"},
                                                 { id: 'name', header: 'Name'},
-                                                { id: 'key', header: 'Type'},
                                                 { id: 'update_in_progress', header: 'Building', template: "{common.checkbox()}"},
                                                 //{ id: 'restart_docker', header: 'Restart Docker', template: "<span class='webix_icon wxi-sync'></span>"},
                                                 { id: 'updated', header: 'Updated'},
                                                 { id: 'duration', header: 'Duration [s]'},
-                                                { id: 'author', header: 'Author', },
+                                                //{ id: 'author', header: 'Author' },
                                                 { id: 'dump_name', header: 'Dump Name', },
-                                                { id: 'dump_date', header: 'Dump Date', },
-                                                { id: 'git_sha', header: 'SHA', },
+                                                { id: 'dump_date', header: 'Dump Date', minWidth: 150, },
+                                                //{ id: 'git_sha', header: 'SHA', fillspace: true,},
                                             ],
                                         },
                                     ]
                                 }
                             ]
-                        }
                     },
                     {
-                        view: 'resizer',
-                    },
-                    {
-                        id: "webix-instance-details",
-                        maxWidth: 250,
-                        view: "template",
-                        type: "header",
-                        template: "html->instance-template",
-                    },
+                    rows: [
+                        {
+                            view: 'toolbar',
+                            css: "webix_dark",
+                            id: 'site-toolbar',
+                            hidden: true,
+                            cols: [
+                                { view:"button", id:"settings", value:"Settings", width:100, align:"left", click: settings },
+                                { view:"button", id:"restart", value:"Restart", width:100, align:"left", click: restart, },
+                                { view:"button", id:"rebuild", value:"Rebuild", width:100, align:"left", click: rebuild, },
+                            ],
+                        },
+                        {
+                            id: "webix-instance-details",
+                            maxWidth: 650,
+                            view: "template",
+                            type: "body",
+                            template: "html->instance-template",
+                            hidden: true,
+                        },
+                    ],
+                    }
                 ]
             });
 
