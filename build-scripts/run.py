@@ -67,6 +67,7 @@ def _get_jira_wrapper(use_jira):
 
 def clearflags():
     # clear reset-db-at-next-build
+    logger.info("Clearing flags")
     context = Context(False)
     logger.info("Clearing flags")
     requests.get(context.cicd_url + "/update/site", params={
@@ -114,7 +115,8 @@ def build(jira):
         if record_site.get('dump'):
             dump_name = record_site['dump']
 
-    update_instance(context, instance, dump_name, force_rebuild=force_rebuild)
+    logger.info(f"FORCE REBUILD: {force_rebuild}")
+    # update_instance(context, instance, dump_name, force_rebuild=force_rebuild)
     clearflags()
 
 

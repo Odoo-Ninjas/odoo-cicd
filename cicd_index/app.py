@@ -423,9 +423,9 @@ def _validate_input(data, int_fields=[]):
                 print(ex)
                 data.pop(int_field)
     for k, v in list(data.items()):
-        if v == 'true':
+        if v in ['true', 'True']:
             data[k] = True
-        elif v == 'false':
+        elif v in ['false', 'False']:
             data[k] = False
         elif v == 'undefined':
             data[k] = None
@@ -435,9 +435,9 @@ def _validate_input(data, int_fields=[]):
     return data
 
 
-@app.route('/update/site', methods=["POST"])
+@app.route('/update/site')
 def update_site():
-    data = _validate_input(request.form, int_fields=[])
+    data = _validate_input(request.args, int_fields=[])
     if '_id' not in data and 'git_branch' in data:
         branch_name = data.pop('git_branch')
         site = db.sites.find_one({'git_branch': branch_name})

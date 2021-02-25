@@ -129,8 +129,10 @@ def update_instance(context, instance, dump_name, force_rebuild=False):
     })
     logger.info(f"Result of asking for last_successful_sha: {last_sha}")
     if not last_sha.get('sha') or force_rebuild:
+        logger.info(f"Make new instance: force rebuild: {force_rebuild} / last sha: {last_sha.get('sha')}")
         make_instance(context, instance, dump_name, use_previous_db=True) # TODO parametrized from jenkins
     else:
+        logger.info(f"Updating current instance")
         # mark existing instance as being updated
         requests.get(context.cicd_url + '/set_updating', params={
             'name': instance['name'], 'value': 1
