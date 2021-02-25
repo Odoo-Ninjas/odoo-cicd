@@ -72,7 +72,6 @@ def clearflags():
     logger.info("Clearing flags")
     requests.get(context.cicd_url + "/update/site", params={
         'git_branch': branch,
-        'building': False,
         'reset-db-at-next-build': False,
     })
 
