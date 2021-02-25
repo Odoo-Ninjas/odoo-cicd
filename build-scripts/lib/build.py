@@ -40,14 +40,14 @@ def _exec(context, cmd, needs_result=False):
     if needs_result:
         return res.decode('utf-8')
 
-def _notify_instance_updated(context, instance, update_time, dump_date, dump_name):
+def _notify_instance_updated(context, instance, duration, dump_date, dump_name):
     name = instance['name']
-    print(f"notify_instance name: {name}, update_time: {update_time}, branch: {instance['git_branch']}, dump: {dump_date} {dump_name}")
+    print(f"notify_instance name: {name}, duration: {duration}, branch: {instance['git_branch']}, dump: {dump_date} {dump_name}")
 
     data = {
         'name': name,
         'sha': instance['git_sha'],
-        'update_time': update_time,
+        'duration': duration,
     }
     if dump_date:
         data['dump_date'] = dump_date
@@ -57,7 +57,7 @@ def _notify_instance_updated(context, instance, update_time, dump_date, dump_nam
     requests.get(context.cicd_url + '/set_updating', params={'name': name, 'value': 0})
     context.jira_wrapper.comment(
         instance['git_branch'],
-        f"Instance updated {name} in {update_time} seconds."
+        f"Instance updated {name} in {duration} seconds."
     )
 
 def _make_instance_docker_configs(context, instance):
