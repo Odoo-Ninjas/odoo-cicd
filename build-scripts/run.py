@@ -15,6 +15,11 @@ from datetime import datetime
 from lib.build import make_instance
 from lib.build import update_instance
 from lib.build import augment_instance
+import logging
+FORMAT = '[%(levelname)s] %(name) -12s %(asctime)s %(message)s'
+logging.basicConfig(format=FORMAT)
+logging.getLogger().setLevel(logging.DEBUG)
+logger = logging.getLogger('')  # root handler
 
 
 @click.group()
@@ -60,11 +65,10 @@ def _get_jira_wrapper(use_jira):
     return jira_wrapper
 
 
-@cli.command()
 def clearflags():
     # clear reset-db-at-next-build
     context = Context(False)
-    print("Clearing flags")
+    logger.info("Clearing flags")
     requests.get(context.cicd_url + "/update/site", params={
         'git_branch': branch,
         'reset-db-at-next-build': False,
@@ -77,10 +81,10 @@ def build(jira):
     dump_name = os.environ['DUMP_NAME']
     workspace = os.environ['CICD_WORKSPACE']
     if not workspace:
-        print("Please provide CICD_WORKSPACE in environment!")
+        logger.warn("Please provide CICD_WORKSPACE in environment!")
         sys.exit(-1)
 
-    print(f"BUILDING for {branch}; workspace: {workspace}")
+    logger.info(f"BUILDING for {branch}; workspace: {workspace}")
     context = Context(jira)
     if workspace:
         context.workspace = Path(workspace)
@@ -101,7 +105,7 @@ def build(jira):
         'git_branch': instance['git_branch'],
     }).json()
 
-    print("try to get build informations")
+    logger.info("try to get build informations")
     force_rebuild = False
     if record_site:
         record_site = record_site[0]
@@ -111,6 +115,7 @@ def build(jira):
             dump_name = record_site['dump']
 
     update_instance(context, instance, dump_name, force_rebuild=force_rebuild)
+    clearflags()
 
 
 class Context(object):
@@ -134,7 +139,7 @@ if __name__ == '__main__':
         if not os.getenv("CICD_URL"):
             os.environ['CICD_URL'] = 'http://127.0.0.1:9999'
 
-        print(f"Using cicd app on {os.environ['CICD_URL']}")
+        logger.info(f"Using cicd app on {os.environ['CICD_URL']}")
     _get_env()
 
     cli()
