@@ -72,6 +72,7 @@ def clearflags():
     logger.info("Clearing flags")
     requests.get(context.cicd_url + "/update/site", params={
         'git_branch': branch,
+        'building': False,
         'reset-db-at-next-build': False,
     })
 
@@ -116,7 +117,7 @@ def build(jira):
             dump_name = record_site['dump']
 
     logger.info(f"FORCE REBUILD: {force_rebuild}")
-    # update_instance(context, instance, dump_name, force_rebuild=force_rebuild)
+    update_instance(context, instance, dump_name, force_rebuild=force_rebuild)
     clearflags()
 
 

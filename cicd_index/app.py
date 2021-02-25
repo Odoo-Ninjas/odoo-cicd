@@ -435,9 +435,13 @@ def _validate_input(data, int_fields=[]):
     return data
 
 
-@app.route('/update/site')
+@app.route('/update/site', methods=["GET", "POST"])
 def update_site():
-    data = _validate_input(request.args, int_fields=[])
+    if request.method == 'POST':
+        data = request.form
+    else:
+        data = request.args
+    data = _validate_input(data, int_fields=[])
     if '_id' not in data and 'git_branch' in data:
         branch_name = data.pop('git_branch')
         site = db.sites.find_one({'git_branch': branch_name})
