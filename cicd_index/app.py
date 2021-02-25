@@ -398,7 +398,7 @@ def data_variants():
         _filter['name'] = request.args['name']
 
     sites = _format_dates_in_records(list(db.sites.find(_filter)))
-    sites = sorted(sites, key=lambda x: x.get('updated', x.get('last_access', arrow.get('1980-04-04'))), reverse=True)
+    sites = sorted(sites, key=lambda x: x.get('name'))
 
     for site in sites:
         site['docker_state'] = 'running' if _get_docker_state(site['name']) else 'stopped'
