@@ -427,6 +427,11 @@ def data_variants():
 
     for site in sites:
         site['docker_state'] = 'running' if _get_docker_state(site['name']) else 'stopped'
+    for site in sites:
+        try:
+            site['index'] = int(site['index'])
+        except Exception:
+            site['index'] = 0
 
     sites_grouped = defaultdict(list)
     for site in sites:
@@ -441,31 +446,9 @@ def data_variants():
 @app.route('/')
 def index_func():
 
-    sites = list(db.sites.find({'enabled': True}))
-
-    for site in sites:
-        for k in site:
-            if not isinstance(site[k], str):
-                continue
-            try:
-                site[k] = arrow.get(site[k]).to(os.environ['DISPLAY_TIMEZONE'])
-            except arrow.parser.ParserError:
-                continue
-    sites = sorted(sites, key=lambda x: x.get('updated', x.get('last_access', arrow.get('1980-04-04'))), reverse=True)
-    for site in sites:
-        site['docker_state'] = 'running' if _get_docker_state(site['name']) else 'stopped'
-
-    sites_grouped = defaultdict(list)
-    for site in sites:
-        sites_grouped[site['git_branch']].append(site)
-    for site in sites_grouped:
-        sites_grouped[site] = sorted(sites_grouped[site], key=lambda x: x['index'], reverse=True)
-
     return render_template(
         'index.html',
-        sites=sites_grouped,
         DATE_FORMAT=os.environ['DATE_FORMAT'].replace("_", "%"),
-        message=request.args.get('message'),
     )
 
 def _validate_input(data, int_fields=[]):
