@@ -1,21 +1,18 @@
 ---
 - hosts: all
   vars:
-    jenkins_version: "2.73.1"
-    jenkins_hostname: "jenkins.example.com"
-    jenkins_port: 8080
+    jenkins_version: "2.277.1"
     jenkins_install_via: "apt"
     jenkins_jobs:
       - "my-first-job"
-      - "another-awesome-job"
-    jenkins_include_secrets: true
-    jenkins_include_custom_files: true
+    jenkins_include_secrets: false
+    jenkins_include_custom_files: false
+    jenkins_config_owner: jenkins
+    jenkins_config_group: jenkins
     jenkins_custom_files:
       - src: "jenkins.plugins.openstack.compute.UserDataConfig.xml"
         dest: "jenkins.plugins.openstack.compute.UserDataConfig.xml"
     jenkins_plugins:
       - git
-    jenkins_custom_plugins:
-      - "openstack-cloud-plugin/openstack-cloud.jpi"
   roles:
     - emmetog.jenkins

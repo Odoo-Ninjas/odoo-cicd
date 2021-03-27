@@ -1,4 +1,7 @@
 ---
+
+- include: "install-flask.yml"
+
 - name: Install apt packages
   apt:
     pkg:
