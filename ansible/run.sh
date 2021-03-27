@@ -1,0 +1,1 @@
+ansible-playbook -i ansible/data/host_parallels_local ansible/cicd.yml

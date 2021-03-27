@@ -1,0 +1,7 @@
+---
+- name: Install apt packages
+  apt:
+    pkg:
+    - htop
+    - ncdu
+    - bash-completion

@@ -1,0 +1,4 @@
+---
+- hosts: all
+  roles:
+    - {role: cicd, vars: { }}
