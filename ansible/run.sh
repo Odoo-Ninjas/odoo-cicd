@@ -1,1 +1,5 @@
-ansible-playbook -i ansible/data/host_parallels_local ansible/cicd.yml
+#!/bin/bash
+ansible-galaxy install emmetog.jenkins
+
+cd ansible || exit -1
+ansible-playbook -i data/hosts cicd.yml
