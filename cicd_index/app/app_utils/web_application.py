@@ -419,10 +419,40 @@ def last_access():
     return jsonify({'result': 'ok'})
 
 
+@app.route("/data/users", methods=["GET", "POST"])
+def data_users():
+    _filter = {}
+    if request.args.get('id'):
+        filter = {'_id': ObjectId(request.args.get('id'))}
+    users = list(db.users.find(_filter, {'name': 1, 'sites': 1}))
+    for user in users:
+        user['all_sites'] = list(db.sites.find({}, {'name': 1}))
+    return jsonify(users)
 
+@app.route("/data/user_sites", methods=["GET", "POST"])
+def data_user_sites():
+    _filter = {}
+    if request.args.get('id'):
+        _filter = {'_id': ObjectId(request.args.get('id'))}
+    user = db.users.find_one(_filter, {'name': 1, 'sites': 1}) or {}
+    user.setdefault('sites', [])
 
+    if request.method == "GET":
+        sites = []
+        for site in db.sites.find({}, {'name': 1}):
+            sites.append({
+                'name': site['name'],
+                'allowed': site['name'] in user['sites'],
+            })
+        return jsonify(sites)
+    else:
+        name = request.form['name']
+        if request.form['allowed'] == '1':
+            user['sites'].append(name)
+        else:
+            if name in user['sites']:
+                user['sites'].remove(name)
+        user['sites'] = list(set(user['sites']))
 
-
-
-
-
+        db.users.update_one(_filter, {"$set": user})
+        return jsonify({"result": "ok"})

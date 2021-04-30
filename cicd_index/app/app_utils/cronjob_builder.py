@@ -22,6 +22,7 @@ from git import Repo
 from .tools import store_output, get_output
 logger = logging.getLogger(__name__)
 
+threads = {} # for multitasking
 
 # context.jira_wrapper.comment(
 #     instance['git_branch'],
@@ -68,7 +69,6 @@ DB_PORT={}
     ))
 
 def notify_instance_updated(site):
-    import pudb;pudb.set_trace()
     repo = _get_repo(site['name'])
     sha = str(repo.refs.HEAD.commit)
     info = {
@@ -86,7 +86,6 @@ def _last_success_full_sha(site):
 
 
 def make_instance(site, use_dump):
-    logger.info(f"BUILD CONTROL: Making Instance for {site['name']}")
     _make_instance_docker_configs(site)
 
     output = _odoo_framework(
@@ -130,60 +129,63 @@ def make_instance(site, use_dump):
 
 
 def build_instance(site):
-    started = arrow.get()
-    _store(site['name'], {
-        "is_building": True,
-        "build_started": started.to("utc").strftime("%Y-%m-%d %H:%M:%S"),
-        })
     try:
-        import pudb;pudb.set_trace()
-        dump_name = site.get('dump') or os.getenv("DUMP_NAME")
+        logger.info(f"Building instance {site['name']}")
+        started = arrow.get()
+        _store(site['name'], {
+            "is_building": True,
+            "build_started": started.to("utc").strftime("%Y-%m-%d %H:%M:%S"),
+            })
+        try:
+            dump_name = site.get('dump') or os.getenv("DUMP_NAME")
 
-        logger.info(f"Updating instance {site.get('name')}")
-        last_sha = _last_success_full_sha(site)
+            last_sha = _last_success_full_sha(site)
 
-        if not last_sha or site.get('force_rebuild'):
-            logger.info(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha and last_sha.get('sha')}")
-            make_instance(site, dump_name)
-        else:
-            if site.get('do-build-all'):
-                output = _odoo_framework(
-                    site, 
-                    ["update", "--no-dangling-check", "--i18n"]
-                )
+            if not last_sha or site.get('force_rebuild'):
+                logger.debug(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha and last_sha.get('sha')}")
+                import pudb;pudb.set_trace()
+                make_instance(site, dump_name)
             else:
-                output = _odoo_framework(
-                    site, 
-                    ["update", "--no-dangling-check", "--since-git-sha", last_sha, "--i18n"]
-                )
+                if site.get('do-build-all'):
+                    output = _odoo_framework(
+                        site, 
+                        ["update", "--no-dangling-check", "--i18n"]
+                    )
+                else:
+                    output = _odoo_framework(
+                        site, 
+                        ["update", "--no-dangling-check", "--since-git-sha", last_sha, "--i18n"]
+                    )
 
-            store_output(site['name'], 'update', output)
+                store_output(site['name'], 'update', output)
 
-            _odoo_framework(["up", "-d"])
+                _odoo_framework(["up", "-d"])
 
-        notify_instance_updated(site)
+            notify_instance_updated(site)
 
+            success = True
+        except (Exception, BaseException) as ex:
+            import pudb;pudb.set_trace()
+            success = False
+            logger.error(ex)
+        
+        db.sites.update_one({
+            'name': site['name'],
+        }, {'$set': {
+            'is_building': False,
+            'needs_build': False,
+            'success': success,
+            'force_rebuild': False,
+            'do-build-all': False,
+            'updated': datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            'duration': (arrow.get() - started).total_seconds(),
+        }
+        }, upsert=False)
+
+        del threads[site['name']]
+        
     except Exception as ex:
-        success = False
         logger.error(ex)
-
-    finally:
-        success = True
-    import pudb;pudb.set_trace()
-    
-    db.sites.update_one({
-        'name': site['name'],
-    }, {'$set': {
-        'is_building': False,
-        'needs_build': False,
-        'success': success,
-        'force_rebuild': False,
-        'do-build-all': False,
-        'updated': datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-        'duration': (arrow.get() - started).total_seconds(),
-    }
-    }, upsert=False)
-    
 
 
 def _build():
@@ -192,7 +194,10 @@ def _build():
 
             sites = list(db.sites.find({'needs_build': True}))
             for site in sites:
-                build_instance(site)
+                if not threads.get(site['name']) and not threads: # TODO undo
+                    thread = threading.Thread(target=build_instance, args=(site,))
+                    threads[site['name']] = thread
+                    thread.start()
 
         except Exception as ex:
             logger.error(ex)

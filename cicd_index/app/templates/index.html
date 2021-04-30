@@ -2,6 +2,22 @@
 {% block content %}
     <body>
         <div style="display: none;">
+            <div id="user-template">
+                <div>
+                    <table class='data'>
+                        <tr>
+                            <th style="min-width: 200px;">Name</th>
+                            <td>#name#</td>
+                        </tr>
+                        <tr>
+                            <th style="min-width: 200px;">Allowed sites</th>
+                            <td>
+                            <input type='checkbox'> ODOO-501<br/>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
             <div id="instance-template">
                 <div>
                     <table class='data'>
@@ -330,6 +346,20 @@
             }
 
         var current_details = null;
+        function reload_user_details(id) {
+            webix.ajax().get('/cicd/data/users?id=' + id).then(function(data) {
+                var template = $$('webix-user-details');
+                template.data = data.json()[0];
+                template.refresh();
+                template.show();
+                $$('site-toolbar').hide();
+                current_user = id;
+            }).fail(function(response) {
+                webix.message("Error: " + response.statusText, "error");
+            });
+        }
+
+        var current_details = null;
         function reload_details(name) {
             webix.ajax().get('/cicd/data/sites?name=' + name).then(function(data) {
                 var template = $$('webix-instance-details');
@@ -510,6 +540,37 @@
                                 { id: 'delete', header: 'Delete', },
                             ],
                         },
+                        {
+                            id: 'table-users',
+                            view: "datatable",
+                            navigation: true,
+                            headerRowHeight: 60,
+                            rowHeight: 30,
+                            select: 'row',
+                            autoConfig: false,
+                            url: '/cicd/data/users',
+                            editable: false,
+                            data: [],
+                            leftSplit: 0,
+                            scrollX: false,
+                            on: {
+                                onSelectChange:function(){
+                                    if (!this.getSelectedItem()) {
+                                        return;
+                                    }
+                                    reload_user_details(this.getSelectedItem()._id);
+                                },
+                                onItemClick: function(id, e, trg) {
+                                    //if (id.column === 'start_instance') {
+                                    //    var name = this.getSelectedItem().name;
+                                    //    start_instance(name);
+                                    //}
+                                }
+                            },
+                            columns:[
+                                { id: 'name', header: 'Name', minWidth: 150},
+                            ],
+                        },
                     ]
                 },
                 {
@@ -537,6 +598,44 @@
                         type: "body",
                         template: "html->instance-template",
                         hidden: true,
+                    },
+                    {
+                        id: "webix-user-details",
+                        maxWidth: 650,
+                        css: "webix_dark",
+                        view: "template",
+                        type: "body",
+                        template: "html->user-template",
+                        hidden: true,
+                    },
+                    {
+                        id: 'table-user-sites',
+                        view: "datatable",
+                        navigation: true,
+                        headerRowHeight: 60,
+                        rowHeight: 30,
+                        select: 'row',
+                        autoConfig: false,
+                        url: '/cicd/data/user_sites',
+                        editable: true,
+                        data: [],
+                        leftSplit: 0,
+                        scrollX: false,
+                        on: {
+                            onCheck: function(row, column, state) {
+                                debugger;
+                                var item = $$("table-user-sites").getItem(row);
+                                webix.ajax().post('/cicd/data/user_sites', {
+                                    'name': item.name,
+                                    'allowed': state,
+                                    }).then(function(res) {
+                                });
+                            }
+                        },
+                        columns:[
+                            { id: 'name', header: 'Name', minWidth: 250},
+                            { id: 'allowed', header: 'Allowed', template: "{common.checkbox()}", disable: true},
+                        ],
                     },
                 ],
                 }
