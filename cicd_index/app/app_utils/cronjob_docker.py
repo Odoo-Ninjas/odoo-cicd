@@ -7,7 +7,7 @@ import arrow
 logger = logging.getLogger(__name__)
 client = Docker.from_env()
 
-def _get_docker_state():
+def _get_docker_states_background():
     while True:
         try:
             logger.info("Getting docker state from jenkins")
@@ -27,10 +27,6 @@ def _get_docker_state():
         finally:
             time.sleep(10)
 
-logger.info("Starting docker state updater")
-t = threading.Thread(target=_get_docker_state)
-t.daemon = True
-t.start()
 
 def cycle_down_apps():
     while True:
@@ -48,7 +44,11 @@ def cycle_down_apps():
         time.sleep(10)
 
 
-t = threading.Thread(target=cycle_down_apps)
-t.daemon = True
-t.start()
+def start():
+    t = threading.Thread(target=cycle_down_apps)
+    t.daemon = True
+    t.start()
 
+    t = threading.Thread(target=_get_docker_states_background)
+    t.daemon = True
+    t.start()

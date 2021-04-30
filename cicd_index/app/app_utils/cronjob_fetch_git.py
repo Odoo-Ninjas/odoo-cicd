@@ -4,6 +4,7 @@ import time
 import git
 import threading
 from .. import db
+from .. import MAIN_FOLDER_NAME
 from git import Repo
 import subprocess
 from pathlib import Path
@@ -13,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 URL = os.environ['REPO_URL']
 WORKSPACE = Path("/cicd_workspace")
-MAIN_FOLDER_NAME = '_main'
 
 path = WORKSPACE / MAIN_FOLDER_NAME
 
@@ -78,7 +78,8 @@ def _get_git_state():
             time.sleep(5)
 
 
-logger.info("Starting job to fetch source code")
-t = threading.Thread(target=_get_git_state)
-t.daemon = True
-t.start()
+def start():
+    logger.info("Starting job to fetch source code")
+    t = threading.Thread(target=_get_git_state)
+    t.daemon = True
+    t.start()

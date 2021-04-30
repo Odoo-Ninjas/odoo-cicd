@@ -124,7 +124,7 @@ def build_instance(site):
         last_sha = _last_success_full_sha(site)
 
         if not last_sha or site.get('force_rebuild'):
-            logger.info(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha.get('sha')}")
+            logger.info(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha and last_sha.get('sha')}")
             make_instance(site, dump_name)
         else:
             if site.get('do-build-all'):
@@ -167,6 +167,7 @@ def _build():
 
             sites = list(db.sites.find({'needs_build': True}))
             for site in sites:
+                import pudb;pudb.set_trace()
                 build_instance(site)
 
         except Exception as ex:
@@ -176,7 +177,8 @@ def _build():
             time.sleep(5)
 
 
-logger.info("Starting job to build instances")
-t = threading.Thread(target=_build)
-t.daemon = True
-t.start()
+def start():
+    logger.info("Starting job to build instances")
+    t = threading.Thread(target=_build)
+    t.daemon = True
+    t.start()

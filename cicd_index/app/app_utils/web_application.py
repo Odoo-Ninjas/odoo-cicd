@@ -1,3 +1,4 @@
+from .. import MAIN_FOLDER_NAME
 import os
 import base64
 import arrow
@@ -200,7 +201,7 @@ def debug_instance():
     for container in containers:
         container.stop()
     shell_url = _get_shell_url([
-        "cd", f"/{os.environ['WEBSSH_CICD_WORKSPACE']}/cicd_instance_{site_name}", ";",
+        "cd", f"/{os.environ['WEBSSH_CICD_WORKSPACE']}/{site_name}", ";",
         "/usr/bin/python3",  "/opt/odoo/odoo", "-f", "--project-name", site_name, "debug", "odoo", "--command", "/odoolib/debug.py",
     ])
     # TODO make safe; no harm on system, probably with ssh authorized_keys
@@ -235,8 +236,10 @@ def cleanup():
                 _drop_db(cr, dbname)
 
         # Drop also old sourcecodes
-        for dir in Path("/cicd_workspace").glob("cicd_instance_*"):
-            instance_name = dir.name[len("cicd_instance_"):]
+        for dir in Path("/cicd_workspace").glob("*"):
+            if dir.name == MAIN_FOLDER_NAME:
+                continue
+            instance_name = dir.name
             if instance_name not in sites:
                 _delete_sourcecode(instance_name)
 
@@ -331,7 +334,7 @@ def shell_instance():
     containers = docker.containers.list(all=True, filters={'name': [name]})
     containers = [x for x in containers if x.name == name]
     shell_url = _get_shell_url([
-        "cd", f"/{os.environ['WEBSSH_CICD_WORKSPACE']}/cicd_instance_{site_name}", ";",
+        "cd", f"/{os.environ['WEBSSH_CICD_WORKSPACE']}/{site_name}", ";",
         "/usr/bin/python3",  "/opt/odoo/odoo", "-f", "--project-name", site_name, "debug", "odoo_debug", "--command", "/odoolib/shell.py",
     ])
     # TODO make safe; no harm on system, probably with ssh authorized_keys

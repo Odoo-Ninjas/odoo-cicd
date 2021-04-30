@@ -27,9 +27,15 @@ mongoclient = MongoClient(
 )
 db = mongoclient.get_database('cicd_sites')
 """
-                     LOGGING SETUP                                     
+                     HOST IP
 """
 host_ip = '.'.join(subprocess.check_output(["/usr/bin/hostname", "-I"]).decode('utf-8').strip().split(".")[:3]) + '.1'
+
+"""
+                     CONSTANTS
+"""
+
+MAIN_FOLDER_NAME = '_main'
 
 """
                      LOGGING SETUP                                     
@@ -43,6 +49,14 @@ logger.info(f"Host IP: {host_ip}")
 """
                      APP SETUP                                         
 """
+from .app_utils import cronjob_builder
+from .app_utils import cronjob_docker
+from .app_utils import cronjob_fetch_git
+
+cronjob_builder.start()
+#cronjob_docker.start()
+#cronjob_fetch_git.start()
+
 app = Flask(
     __name__,
     static_folder='/_static_index_files',

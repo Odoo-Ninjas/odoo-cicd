@@ -72,7 +72,7 @@ def _odoo_framework(site_name, command):
 
     res = _execute_shell(
         ["/opt/odoo/odoo", "-f", "--project-name", site_name] + command,
-        cwd=f"{os.environ['CICD_WORKSPACE']}/cicd_instance_{site_name}",
+        cwd=f"{os.environ['CICD_WORKSPACE']}/{site_name}",
         # env={
         #     'NO_PROXY': "*",
         #     'DOCKER_CLIENT_TIMEOUT': "600",
@@ -141,7 +141,7 @@ def _delete_dockercontainers(name):
     
 def _delete_sourcecode(name):
 
-    path = Path("/cicd_workspace") / f"cicd_instance_{name}"
+    path = Path("/cicd_workspace") / name
     if not path.exists():
         return
     shutil.rmtree(path)
