@@ -143,7 +143,6 @@ def build_instance(site):
 
             if not last_sha or site.get('force_rebuild'):
                 logger.debug(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha and last_sha.get('sha')}")
-                import pudb;pudb.set_trace()
                 make_instance(site, dump_name)
             else:
                 if site.get('do-build-all'):
@@ -165,7 +164,6 @@ def build_instance(site):
 
             success = True
         except (Exception, BaseException) as ex:
-            import pudb;pudb.set_trace()
             success = False
             logger.error(ex)
         
