@@ -192,7 +192,7 @@ def _build():
 
             sites = list(db.sites.find({'needs_build': True}))
             for site in sites:
-                if not threads.get(site['name']) and not threads: # TODO undo
+                if not threads.get(site['name']):
                     thread = threading.Thread(target=build_instance, args=(site,))
                     threads[site['name']] = thread
                     thread.start()
