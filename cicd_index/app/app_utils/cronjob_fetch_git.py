@@ -57,7 +57,7 @@ def _get_git_state():
                 instance_folder = WORKSPACE / branch
                 instance_folder.mkdir(exist_ok=True)
                 logger.info(f"Copying source code to {instance_folder}")
-                subprocess.run(["rsync", str(path) + "/", str(instance_folder) + "/", "-ar", "--exclude=.git"])
+                subprocess.run(["rsync", str(path) + "/", str(instance_folder) + "/", "-ar"]) # , "--exclude=.git"]) building needs git...
             
                 db.sites.update_one({
                     'name': branch,

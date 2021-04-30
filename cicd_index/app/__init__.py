@@ -54,8 +54,8 @@ from .app_utils import cronjob_docker
 from .app_utils import cronjob_fetch_git
 
 cronjob_builder.start()
-#cronjob_docker.start()
-#cronjob_fetch_git.start()
+cronjob_docker.start()
+cronjob_fetch_git.start()
 
 app = Flask(
     __name__,
