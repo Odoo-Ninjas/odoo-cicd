@@ -471,9 +471,7 @@ def data_users_delete():
 
 @app.route("/data/user_sites", methods=["GET", "POST"])
 def data_user_sites():
-    _filter = {}
-    if request.args.get('id'):
-        _filter = {'_id': ObjectId(request.args.get('id'))}
+    _filter = {'_id': ObjectId(request.args.get('user_id', request.form.get('user_id')))}
     user = db.users.find_one(_filter, {'name': 1, 'sites': 1}) or {}
     user.setdefault('sites', [])
 

@@ -1,5 +1,8 @@
 {% include "static/tools.js" %}
 
+function return_to_branches() {
+    location = '/index';
+}
 
 function delete_user() {
     var form = webix.ui({
@@ -112,9 +115,21 @@ function reload_user_details(id) {
         template.refresh();
         template.show();
         current_details = id;
+
+        // load user sites;
+        var table = $$("table-user-sites");
+        if (current_details) {
+            table.clearAll();
+            table.load("/cicd/data/user_sites?user_id=" + current_details);
+            table.show();
+        }
+        else {
+            table.hide();
+        }
     }).fail(function(response) {
         webix.message("Error: " + response.statusText, "error");
     });
+
 }
 
 webix.ui({
@@ -135,8 +150,6 @@ webix.ui({
                     elements: [
                         { view:"button", id:"return_to_branches", value:"Return", click: clicked_menu},
                         { view:"button", id:"new_user", value:"New User", click: clicked_menu},
-                        //{ view:"button", id:"start_all", value:"Start All Docker Containers", click: clicked_menu},
-                        //{ view:"button", id:"delete_unused", value:"Spring Clean", click: delete_unused},
                     ],
                 },
                 {
@@ -219,6 +232,7 @@ webix.ui({
             {
                 id: 'table-user-sites',
                 view: "datatable",
+                hidden: true,
                 navigation: true,
                 headerRowHeight: 60,
                 rowHeight: 30,
@@ -231,9 +245,9 @@ webix.ui({
                 scrollX: false,
                 on: {
                     onCheck: function(row, column, state) {
-                        debugger;
                         var item = $$("table-user-sites").getItem(row);
                         webix.ajax().post('/cicd/data/user_sites', {
+                            'user_id': current_details,
                             'name': item.name,
                             'allowed': state,
                             }).then(function(res) {
