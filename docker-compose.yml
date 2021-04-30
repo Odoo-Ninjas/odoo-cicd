@@ -9,6 +9,29 @@ services:
     environment:
         INDEX_HOST: http://cicd_index:5000
     restart: "unless-stopped"
+  cicd_cronjobs:
+    build: ./cicd_index
+    env_file: .env
+    networks:
+        - internal
+    restart: "unless-stopped"
+    environment:
+        CICD_CRONJOBS: 1
+        DISPLAY_TIMEZONE: Europe/Berlin
+        DATE_FORMAT: '_d._m._Y _H:_M:_S'
+        MONGO_HOST: mongo
+        MONGO_PORT: 27017
+        MONGO_USERNAME: admin
+        MONGO_PASSWORD: 1
+        WEBSSH_CICD_WORKSPACE: /cicd_workspace
+    volumes:
+        - ${DUMPS_PATH}:/opt/dumps
+        - ${CICD_WORKSPACE}:/cicd_workspace
+        - ${ODOO_SETTINGS}:/odoo_settings
+        - ./cicd_index/app:/app
+        - /var/run/docker.sock:/var/run/docker.sock
+        - /var/lib/docker:/display_resources/docker
+        - /:/display_resources/root
   cicd_index:
     build: ./cicd_index
     env_file: .env
@@ -19,6 +42,7 @@ services:
         - 5000
     environment:
         # FLASK_ENV: development
+        CICD_CRONJOBS: 0
         FLASK_APP: app
         DISPLAY_TIMEZONE: Europe/Berlin
         DATE_FORMAT: '_d._m._Y _H:_M:_S'
@@ -26,9 +50,6 @@ services:
         MONGO_PORT: 27017
         MONGO_USERNAME: admin
         MONGO_PASSWORD: 1
-        JENKINS_URL: ${JENKINS_URL}
-        JENKINS_USER: ${JENKINS_USER}
-        JENKINS_PASSWORD: ${JENKINS_PASSWORD}
         WEBSSH_CICD_WORKSPACE: /cicd_workspace
     volumes:
         - ${DUMPS_PATH}:/opt/dumps

@@ -16,7 +16,9 @@ import arrow
 import click
 from dotenv import load_dotenv
 from datetime import datetime
+from .tools import _store
 logger = logging.getLogger(__name__)
+
 
 # context.jira_wrapper.comment(
 #     instance['git_branch'],
@@ -66,14 +68,17 @@ def make_instance(site, use_dump):
     logger.info(f"BUILD CONTROL: Making Instance for {site['name']}")
     _make_instance_docker_configs(site)
 
-    _odoo_framework(
+    output = _odoo_framework(
         site['name'], 
         ["reload", '-d', site['name'], '--headless', '--devmode']
     )
-    _odoo_framework(
+    _store(site['name'], {'output_reload': output})
+
+    output = _odoo_framework(
         site['name'], 
         ["build"], # build containers; use new pip packages
     )
+    _store(site['name'], {'output_build': output})
 
     dump_date, dump_name = None, None
     if use_dump:
@@ -84,21 +89,20 @@ def make_instance(site, use_dump):
         dump_date = arrow.get(dump_file.stat().st_mtime).to('UTC').strftime("%Y-%m-%d %H:%M:%S")
         dump_name = use_dump
 
-        db.sites.update_one({
-            'name': site['name'],
-        }, {
-            '$set': {
-                'dump_date': dump_date,
-                'dump_name': dump_name,
-                'is_building': True,
-                },
-        }, upsert=False)
+        _store(site['name'], {
+            'dump_date': dump_date,
+            'dump_name': dump_name,
+            'is_building': True,
+            }
+        )
 
     else:
         logger.info(f"BUILD CONTROL: Resetting DB for {site['name']}")
         _odoo_framework(site, ["db", "reset"])
 
-    _odoo_framework(site, ["update"])
+    output = _odoo_framework(site, ["update"])
+    _store(site['name'], {'output_update': output})
+
     _odoo_framework(site, ["turn-into-dev", "turn-into-dev"])
     _odoo_framework(site, ["set-ribbon", site['name']])
 
@@ -110,13 +114,14 @@ def _last_success_full_sha(site):
 
 
 def build_instance(site):
-    db.sites.update_one({
-        'name': site['name'],
-    }, {'$set': {
-        'is_building': True,
-    }
-    }, upsert=False)
     started = arrow.get()
+    _store(site['name'], {
+        'output_build': "",
+        'output_reload': "",
+        'output_update': "",
+        "is_building": True,
+        "build_started": started.to("utc").strftime("%Y-%m-%d %H:%M:%S"),
+        })
     try:
         dump_name = site.get('dump') or os.getenv("DUMP_NAME")
 
@@ -128,15 +133,17 @@ def build_instance(site):
             make_instance(site, dump_name)
         else:
             if site.get('do-build-all'):
-                _odoo_framework(
+                output = _odoo_framework(
                     site, 
                     ["update", "--no-dangling-check", "--i18n"]
                 )
             else:
-                _odoo_framework(
+                output = _odoo_framework(
                     site, 
                     ["update", "--no-dangling-check", "--since-git-sha", last_sha, "--i18n"]
                 )
+
+            _store(site['name'], {'output_update': output})
 
             _odoo_framework(["up", "-d"])
 
@@ -167,14 +174,13 @@ def _build():
 
             sites = list(db.sites.find({'needs_build': True}))
             for site in sites:
-                import pudb;pudb.set_trace()
                 build_instance(site)
 
         except Exception as ex:
             logger.error(ex)
 
         finally:
-            time.sleep(5)
+            time.sleep(1)
 
 
 def start():

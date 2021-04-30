@@ -291,14 +291,23 @@ def show_mails():
 def build_log():
     name = request.args.get('name')
     site = db.sites.find_one({'name': name})
-    job = _get_jenkins_job(site['git_branch'])
-    build = job.get_last_build_or_none()
+    output = []
+    for heading in [
+        ("Last Error", 'last_error'),
+        ("Reload", 'output_reload'),
+        ("Build", 'output_build'),
+        ("Last Update", 'output_update'),
+    ]:
+        output.append(f"<h1>{heading[0]}</h1>")
+        output.append(site.get(heading[1], '') or '')
+        
     return render_template(
         'log_view.html',
         name=site['name'],
         site=site,
-        build=build,
-        output=build.get_console(),
+        build_status="SUCCESS" if site.get('success') else "FAILURE",
+        duration=site.get('duration', 0),
+        output="<hr/>".join(output),
     )
 
 @app.route("/dump")

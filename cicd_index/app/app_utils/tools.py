@@ -1,4 +1,5 @@
 from .. import db
+from io import BytesIO ## for Python 3
 import docker as Docker
 import base64
 import psycopg2
@@ -11,12 +12,16 @@ import shutil
 from pathlib import Path
 from bson import ObjectId
 import docker as Docker
+import logging
 from .. import host_ip
+
+logger = logging.getLogger(__name__)
 
 docker = Docker.from_env()
 
 BOOL_VALUES = ['1', 1, 'true', 'True', 'y']
 
+class OdooFrameworkException(BaseException): pass
 
 class JSONEncoder(json.JSONEncoder):
     # for encoding ObjectId
@@ -70,23 +75,34 @@ def _odoo_framework(site_name, command):
     if isinstance(command, str):
         command = [command]
 
-    res = _execute_shell(
+    res, stdout, stderr = _execute_shell(
         ["/opt/odoo/odoo", "-f", "--project-name", site_name] + command,
         cwd=f"{os.environ['CICD_WORKSPACE']}/{site_name}",
-        # env={
-        #     'NO_PROXY': "*",
-        #     'DOCKER_CLIENT_TIMEOUT': "600",
-        #     'COMPOSE_HTTP_TIMEOUT': "600",
-        #     'PSYCOPG_TIMEOUT': "120",
-        # }
+        env={
+            'NO_PROXY': "*",
+            'DOCKER_CLIENT_TIMEOUT': "600",
+            'COMPOSE_HTTP_TIMEOUT': "600",
+            'PSYCOPG_TIMEOUT': "120",
+        }
     )
+    output = stdout + '\n' + stderr
+    if res == 'error':
+        _store(site_name, {'last_error': output})
+        raise OdooFrameworkException(output)
+
+    _store(site_name, {'last_error': ""})
+    return output
 
 def _execute_shell(command, cwd=None, env=None):
     if isinstance(command, str):
         command = [command]
 
     env = env or {}
-    # TODO how to pass env to spur?
+
+    stdout, stderr = BytesIO(), BytesIO()
+
+    def decoded(s):
+        return s.decode('utf-8')
 
     with spur.SshShell(
         hostname=host_ip,
@@ -94,11 +110,23 @@ def _execute_shell(command, cwd=None, env=None):
         private_key_file="/root/.ssh/id_rsa",
         missing_host_key=spur.ssh.MissingHostKey.accept
         ) as shell:
-        result = shell.run(
-            command,
-            cwd=cwd,
-            )
-    return result
+        try:
+            result = shell.run(
+                command,
+                cwd=cwd,
+                update_env=env,
+                stdout=stdout,
+                stderr=stderr,
+                )
+        except Exception as ex:
+            stdout.seek(0)
+            stderr.seek(0)
+            logger.error(ex)
+            return 'error', decoded(stdout.read()), decoded(stderr.read())
+
+    stdout.seek(0)
+    stderr.seek(0)
+    return result, decoded(stdout.read()), decoded(stderr.read())
 
     
 def _get_resources():
@@ -227,3 +255,10 @@ def _get_docker_state(name):
     containers = docker.containers.list(all=True, filters={'name': [name]})
     states = set(map(lambda x: x.status, containers))
     return 'running' in states
+
+def _store(sitename, info, upsert=False):
+    db.sites.update_one({
+        'name': sitename,
+    }, {
+        '$set': info,
+    }, upsert=upsert)
