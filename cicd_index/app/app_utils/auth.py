@@ -5,8 +5,11 @@ from flask import redirect
 import flask_login
 from flask import request
 from .. import app
+from .. import db
 from .. import login_manager
 from .models import User
+
+ADMIN_USER = 'admin'
 
 class User(flask_login.UserMixin):
     id = ""
@@ -19,6 +22,15 @@ def user_loader(email):
     #     return
 
     user = User()
+
+    if email != ADMIN_USER:
+        userdb = db.users.find_one({'name': email})
+        if not userdb:
+            raise Exception("Unauthorized")
+
+        user.is_admin = False
+    else:
+        user.is_admin = True
     user.id = email
     user.is_authenticated = True
     return user
@@ -38,7 +50,17 @@ def login():
 @app.route('/login', methods=['POST'])
 def login_post():
     email = flask.request.form['username']
-    if flask.request.form['password'] == os.getenv("PASSWD"):
+    authorized = False
+    password = flask.request.form['password']
+    
+    if email == ADMIN_USER:
+        authorized = password == os.getenv("PASSWD")
+    else:
+        user = db.users.find_one({'name': email}, {'password': 1})
+        if user:
+            authorized = password == user.get('password')
+    
+    if authorized:
         user = User()
         user.id = email
         flask_login.login_user(user)
@@ -48,3 +70,13 @@ def login_post():
 @login_manager.unauthorized_handler
 def unauthorized_handler():
     return login()
+
+    
+@app.route("/user/is_admin")
+def is_admin():
+    user = flask_login.current_user
+    if user.is_authenticated:
+        return jsonify({
+            'admin': user.is_admin,
+        })
+    return jsonify({'admin': False})

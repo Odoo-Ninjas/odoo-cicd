@@ -26,6 +26,7 @@ import logging
 from datetime import datetime
 import docker as Docker
 from .tools import get_output
+import flask_login
 logger = logging.getLogger(__name__)
 
 docker = Docker.from_env()
@@ -38,6 +39,17 @@ def index_func():
         'index.html',
         DATE_FORMAT=os.environ['DATE_FORMAT'].replace("_", "%"),
     )
+
+@app.route('/user_admin')
+@login_required
+def users_index():
+
+    if flask_login.current_user.is_authenticated and flask_login.current_user.is_admin:
+        return render_template(
+            'user_admin.html',
+            DATE_FORMAT=os.environ['DATE_FORMAT'].replace("_", "%"),
+        )
+    raise Exception("unauthorized")
 
 @app.route("/possible_dumps")
 def possible_dumps():
@@ -101,7 +113,7 @@ def data_variants():
     for site in sites:
         site['id'] = site['_id']
         site['update_in_progress'] = False
-        site['repo_url'] = f"{os.environ['REPO_URL']}/-/commit/{site['git_sha']}"
+        site['repo_url'] = f"{os.environ['REPO_URL']}/-/commit/{site.get('git_sha')}"
 
     return jsonify(sites)
 
@@ -282,10 +294,10 @@ def build_log():
     site = db.sites.find_one({'name': name})
     output = []
     for heading in [
-        ("Last Error", 'last_error'),
         ("Reload", 'reload'),
         ("Build", 'build'),
         ("Last Update", 'update'),
+        ("Last Error", 'last_error'),
     ]:
         output.append(f"<h1>{heading[0]}</h1>")
         output.append(get_output(site['name'], heading[1]))
@@ -418,13 +430,35 @@ def last_access():
         }, upsert=False)
     return jsonify({'result': 'ok'})
 
+@app.route("/data/user", methods=["GET"])
+def data_user_get():
+    if request.args.get('id') == 'new':
+        return jsonify([{}])
+    filter = {}
+    if request.args.get('id'):
+        filter = {'_id': ObjectId(request.args.get('id'))}
+    user = db.users.find_one(filter)
+    return jsonify([user])
+
+@app.route("/data/user", methods=["POST"])
+def data_user_post():
+    filter = {}
+    f = request.form
+    from .auth import ADMIN_USER
+    if f['login'].lower() == ADMIN_USER.lower():
+        raise Exception("invalid user name")
+    db.users.update_one({'login': f['login']},
+                        {"$set": f},
+                        upsert=True)
+
+    return jsonify(request.form)
 
 @app.route("/data/users", methods=["GET", "POST"])
 def data_users():
-    _filter = {}
+    filter = {}
     if request.args.get('id'):
         filter = {'_id': ObjectId(request.args.get('id'))}
-    users = list(db.users.find(_filter, {'name': 1, 'sites': 1}))
+    users = list(db.users.find(filter))
     for user in users:
         user['all_sites'] = list(db.sites.find({}, {'name': 1}))
     return jsonify(users)

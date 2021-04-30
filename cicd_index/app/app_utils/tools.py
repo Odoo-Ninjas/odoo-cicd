@@ -283,7 +283,7 @@ def store_output(sitename, ttype, output):
     )
 
 def get_output(sitename, ttype):
-    rec = db.outputs.find_one({'sitename': sitename, 'ttype': ttype})
+    rec = db.outputs.find_one({'name': sitename, 'ttype': ttype})
     if not rec:
         return ""
     return rec['log']

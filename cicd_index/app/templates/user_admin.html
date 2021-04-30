@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+    <body>
+        <div style="display: none;">
+            <div id="user-template">
+                <div>
+                    <table class='data'>
+                        <tr>
+                            <th style="min-width: 200px;">Name</th>
+                            <td>#name#</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    <script>
+    {% include "static/user_admin.js" %}
+    </script>
+
+{% endblock %}
