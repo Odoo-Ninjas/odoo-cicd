@@ -1,37 +1,10 @@
 #TODO clean source not only in workspace
-#TODO label in containers per project
-import base64
-import shutil
 import os
-import time
-from bson import ObjectId
-from flask import redirect
-from operator import itemgetter
-import requests
-import docker as Docker
-import arrow
-import humanize
 import subprocess
-from flask import jsonify
-from flask import make_response
 from flask import Flask
-from flask import render_template
-from flask import url_for
-from datetime import datetime
-from flask import request
-from collections import defaultdict
-import pymongo
-import json
-from pathlib import Path
 from bson.json_util import dumps
-import threading
-import logging
-# import jenkins
-import urllib
-import psycopg2
-import spur
 import flask_login
-from flask_login import login_required
+import logging
 
 login_manager = flask_login.LoginManager()
 

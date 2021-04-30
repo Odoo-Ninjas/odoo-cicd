@@ -1,13 +1,32 @@
 import os
+import base64
+import arrow
+from .tools import _delete_sourcecode
+from .tools import _get_db_conn
 from pathlib import Path
+from flask import redirect
 from flask import request
 from flask import jsonify
 from .. import app
 from .. import login_required
 from flask import render_template
+from flask import make_response
 from .tools import _format_dates_in_records
 from .tools import _get_resources
 from .. import db
+from .tools import _odoo_framework
+from .tools import _drop_db
+from .tools import _validate_input
+from .tools import _get_all_databases
+from .tools import _get_docker_state
+from .tools import _delete_dockercontainers
+from bson import ObjectId
+import logging
+from datetime import datetime
+import docker as Docker
+logger = logging.getLogger(__name__)
+
+docker = Docker.from_env()
 
 @app.route('/')
 @login_required
@@ -48,13 +67,11 @@ def _reload_instance(site):
 @app.route('/trigger/rebuild')
 def trigger_rebuild():
     site = db.sites.find_one({'name': request.args['name']})
-    _set_marker_and_restart(
-        request.args['name'],
-        {
-            'reset-db-at-next-build': True
-        }
-    )
+    _odoo_framework(site, ['db', 'reset'])
     db.updates.remove({'name': site['name']})
+    db.sites.update_one({'name': request.args.get('name')}, {'$set': {
+        'needs_build': True,
+    }}, upsert=False)
     return jsonify({
         'result': 'ok',
     })
@@ -126,6 +143,7 @@ def start_cicd():
 
 def _start_cicd():
     # name = request.cookies['delegator-path']
+    from .web_instance_control import _restart_docker
     name = request.args['name']
     docker_state = _get_docker_state(name)
     logger.info(f"Opening user interface of cicd instance {name}; current docker state: {docker_state}")
@@ -282,12 +300,9 @@ def build_log():
 
 @app.route("/dump")
 def backup_db():
-    _set_marker_and_restart(
-        request.args.get('name'),
-        {
-            'backup-db': request.args['dumpname'],
-        }
-    )
+    site = db.sites.find_one({'name': request.args.get('name')})
+    dump_name = request.args.get('dumpname')
+    _odoo_framework(site, ['backup', 'odoo-db', dump_name])
     return jsonify({
         'result': 'ok',
     })
@@ -298,12 +313,10 @@ def build_again():
         param_name = 'do-build-all'
     else:
         param_name = 'do-build'
-    _set_marker_and_restart(
-        request.args.get('name'),
-        {
-            param_name: True,
-        }
-    )
+    db.sites.update_one({'name': request.args.get('name')}, {'$set': {
+        param_name: True,
+        'needs_build': True,
+    }}, upsert=False)
     return jsonify({
         'result': 'ok',
     })
@@ -379,6 +392,7 @@ def site():
 
 @app.route('/start_all')
 def start_all_instances():
+    from .web_instance_control import _restart_docker
     _restart_docker(None, kill_before=False)
     return jsonify({
         'result': 'ok',

@@ -35,6 +35,7 @@ services:
     volumes:
         - ${DUMPS_PATH}:/opt/dumps
         - ${CICD_WORKSPACE}:/cicd_workspace
+        - ${ODOO_SETTINGS}:/odoo_settings
         - ./cicd_index/app:/app
         - /var/run/docker.sock:/var/run/docker.sock
         - /var/lib/docker:/display_resources/docker

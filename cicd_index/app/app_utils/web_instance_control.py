@@ -3,14 +3,14 @@ from pathlib import Path
 import docker as Docker
 from .tools import _odoo_framework
 from flask import jsonify
+from .. import db
+from flask import request
+import logging
+from .tools import _get_docker_state
+logger = logging.getLogger(__name__)
+
 
 docker = Docker.from_env()
-
-def _get_docker_state(name):
-    docker.ping()
-    containers = docker.containers.list(all=True, filters={'name': [name]})
-    states = set(map(lambda x: x.status, containers))
-    return 'running' in states
 
 
 @app.route("/instance/start")

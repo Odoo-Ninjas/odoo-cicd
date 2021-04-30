@@ -1,8 +1,21 @@
+from .. import db
+import docker as Docker
+import base64
+import psycopg2
+import spur
+import arrow
+import os
 import json
+import subprocess
 import shutil
 from pathlib import Path
+from bson import ObjectId
+import docker as Docker
+
+docker = Docker.from_env()
 
 BOOL_VALUES = ['1', 1, 'true', 'True', 'y']
+
 
 class JSONEncoder(json.JSONEncoder):
     # for encoding ObjectId
@@ -51,9 +64,10 @@ def _validate_input(data, int_fields=[]):
     return data
 
 def _odoo_framework(site_name, command):
+    if isinstance(site_name, dict):
+        site_name = site_name['name']
     if isinstance(command, str):
         command = [command]
-
 
     res = _execute_shell(
         ["/opt/odoo/odoo", "-f", "--project-name", site_name] + command,
@@ -62,7 +76,7 @@ def _odoo_framework(site_name, command):
             'NO_PROXY': "*",
             'DOCKER_CLIENT_TIMEOUT': "600",
             'COMPOSE_HTTP_TIMEOUT': "600",
-            'PSYCOPG_TIMEOUT': "120,
+            'PSYCOPG_TIMEOUT': "120",
         }
     )
 
@@ -207,3 +221,9 @@ def _export_git_values():
     if not os.getenv("GIT_BRANCH"):
         if os.getenv("BRANCH_NAME"):
             os.environ['GIT_BRANCH'] = os.environ['BRANCH_NAME']
+
+def _get_docker_state(name):
+    docker.ping()
+    containers = docker.containers.list(all=True, filters={'name': [name]})
+    states = set(map(lambda x: x.status, containers))
+    return 'running' in states

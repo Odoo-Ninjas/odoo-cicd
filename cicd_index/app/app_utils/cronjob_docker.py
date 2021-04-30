@@ -2,7 +2,10 @@ import logging
 import time
 import threading
 from .. import db
+import docker as Docker
+import arrow
 logger = logging.getLogger(__name__)
+client = Docker.from_env()
 
 def _get_docker_state():
     while True:

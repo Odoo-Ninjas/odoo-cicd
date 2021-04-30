@@ -1,8 +1,14 @@
 import logging
 from datetime import datetime
 import time
+import git
 import threading
 from .. import db
+from git import Repo
+import subprocess
+from pathlib import Path
+import os
+import shutil
 logger = logging.getLogger(__name__)
 
 URL = os.environ['REPO_URL']
@@ -10,10 +16,24 @@ WORKSPACE = Path("/cicd_workspace")
 MAIN_FOLDER_NAME = '_main'
 
 path = WORKSPACE / MAIN_FOLDER_NAME
+
+def clone(path):
+    git.Repo.clone_from(
+        URL, 
+        path, 
+        env={
+            "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=no"
+        }
+    )
+
 if not path.exists():
-    path.mkdir(exist_ok=True)
-    git.Repo.clone_from(URL, path)
-repo = Repo(path)
+    clone(path)
+try:
+    repo = Repo(path)
+except git.exc.InvalidGitRepositoryError:
+    shutil.rmtree(path)
+    clone(path)
+    repo = Repo(path)
 
 
 def _get_git_state():

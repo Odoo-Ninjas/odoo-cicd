@@ -1,4 +1,5 @@
 import logging
+import pymongo
 import time
 import threading
 from .. import db
@@ -12,14 +13,9 @@ import json
 import requests
 import time
 import arrow
-from lib.jira import JiraWrapper
 import click
 from dotenv import load_dotenv
 from datetime import datetime
-from lib.build import make_instance
-from lib.build import backup_dump
-from lib.build import update_instance
-from lib.build import augment_instance
 logger = logging.getLogger(__name__)
 
 # context.jira_wrapper.comment(
@@ -27,19 +23,10 @@ logger = logging.getLogger(__name__)
 #     f"Instance updated {name} in {duration} seconds."
 # )
 
-def _get_instance_working_path(workspace, instance_name):
-    new_path = Path(workspace / f'cicd_instance_{instance_name}')
-    new_path.mkdir(exist_ok=True) # set later False; avoids thresholing
-    return new_path
-
-def _notify_instance_updated(instance, duration, dump_date, dump_name):
-
-
-
 def _make_instance_docker_configs(site):
-    instance_name = instance['name']
-    file = context.odoo_settings / f'docker-compose.{instance_name}.yml'
-    file.parent.mkdir(exist_ok=True)
+    instance_name = site['name']
+    odoo_settings = Path("/odoo_settings")  # e.g. /home/odoo/.odoo
+    file = odoo_settings / f'docker-compose.{instance_name}.yml'
     file.write_text("""
 services:
     proxy:
@@ -51,7 +38,7 @@ networks:
             name: {}
     """.format(os.environ["CICD_NETWORK_NAME"]))
 
-    (context.odoo_settings / f'settings.{instance_name}').write_text("""
+    (odoo_settings / f'settings.{instance_name}').write_text("""
 DEVMODE=1
 PROJECT_NAME={}
 DUMPS_PATH={}
@@ -75,53 +62,45 @@ DB_PORT={}
         os.environ['DB_PORT'],
     ))
 
+def make_instance(site, use_dump):
+    logger.info(f"BUILD CONTROL: Making Instance for {site['name']}")
+    _make_instance_docker_configs(site)
 
-
-def reload_instance(site):
     _odoo_framework(
         site['name'], 
-        ["reload", '-d', instance['name'], '--headless', '--devmode']
+        ["reload", '-d', site['name'], '--headless', '--devmode']
     )
     _odoo_framework(
         site['name'], 
         ["build"], # build containers; use new pip packages
     )
 
-
-def make_instance(instance, use_dump):
-    logger.info(f"BUILD CONTROL: Making Instance for {instance['name']}")
-    _make_instance_docker_configs(context, instance)
-
-    def e(cmd, needs_result=False):
-        cmd = ["-f", "--project-name", instance['name']] + cmd
-        return _exec(context, cmd, needs_result)
-
-    reload_instance(context, instance)
-
     dump_date, dump_name = None, None
     if use_dump:
-        logger.info(f"BUILD CONTROL: Restoring DB for {instance['name']} from {use_dump}")
+        logger.info(f"BUILD CONTROL: Restoring DB for {site['name']} from {use_dump}")
         _odoo_framework(site, ["restore", "odoo-db", use_dump])
         _odoo_framework(site, ["remove-web-assets"])
         dump_file = Path("/opt/dumps") / use_dump
         dump_date = arrow.get(dump_file.stat().st_mtime).to('UTC').strftime("%Y-%m-%d %H:%M:%S")
         dump_name = use_dump
 
+        db.sites.update_one({
+            'name': site['name'],
+        }, {
+            '$set': {
+                'dump_date': dump_date,
+                'dump_name': dump_name,
+                'is_building': True,
+                },
+        }, upsert=False)
+
     else:
-        logger.info(f"BUILD CONTROL: Resetting DB for {instance['name']}")
+        logger.info(f"BUILD CONTROL: Resetting DB for {site['name']}")
         _odoo_framework(site, ["db", "reset"])
 
     _odoo_framework(site, ["update"])
     _odoo_framework(site, ["turn-into-dev", "turn-into-dev"])
     _odoo_framework(site, ["set-ribbon", site['name']])
-
-    db.sites.update_one({
-        'name': site['name'],
-    }, {'$set': {
-        'dump_date': dump_date,
-        'dump_name': dump_name,
-        'is_building': True,
-    }, upsert=False)
 
 def _last_success_full_sha(site):
     info = {'name': site['name']}
@@ -144,12 +123,9 @@ def build_instance(site):
         logger.info(f"Updating instance {site.get('name')}")
         last_sha = _last_success_full_sha(site)
 
-        requests.get(context.cicd_url + "/notify_instance_updating", params={
-            'name': instance['name'],
-        })
         if not last_sha or site.get('force_rebuild'):
-            logger.info(f"Make new instance: force rebuild: {force_rebuild} / last sha: {last_sha.get('sha')}")
-            make_instance(instance, dump_name)
+            logger.info(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha.get('sha')}")
+            make_instance(site, dump_name)
         else:
             if site.get('do-build-all'):
                 _odoo_framework(
@@ -175,6 +151,7 @@ def build_instance(site):
         'name': site['name'],
     }, {'$set': {
         'is_building': False,
+        'needs_build': False,
         'success': success,
         'force_rebuild': False,
         'do-build-all': False,
@@ -190,7 +167,7 @@ def _build():
 
             sites = list(db.sites.find({'needs_build': True}))
             for site in sites:
-                build(site)
+                build_instance(site)
 
         except Exception as ex:
             logger.error(ex)
@@ -200,6 +177,6 @@ def _build():
 
 
 logger.info("Starting job to build instances")
-t = threading.Thread(target=_get_git_state)
+t = threading.Thread(target=_build)
 t.daemon = True
 t.start()
