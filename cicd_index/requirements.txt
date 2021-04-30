@@ -13,3 +13,7 @@ humanize
 paramiko
 spur
 certifi
+
+jira
+requests
+git

@@ -1,3 +1,27 @@
+def _get_jira_wrapper(use_jira):
+    if use_jira:
+        jira_wrapper = JiraWrapper(
+            os.environ['JIRA_URL'],
+            os.environ['JIRA_USER'],
+            os.environ['JIRA_PASSWORD'],
+        )
+    else:
+        jira_wrapper = JiraWrapper("", "", "")
+    return jira_wrapper
+
+def augment_instance_from_jira(context, instance):
+    title = 'n/a'
+    creator = 'n/a'
+    try:
+        fields = context.jira_wrapper.infos(instance['git_branch'])
+        if not isinstance(fields, dict):
+            title = fields.summary
+            creator = fields.creator.displayName
+    except Exception as ex:
+        logger.warn(ex)
+    instance['title'] = title
+    instance['initiator'] = creator
+
 class JiraWrapper(object):
     def __init__(self, url, username, password):
         self.username = username

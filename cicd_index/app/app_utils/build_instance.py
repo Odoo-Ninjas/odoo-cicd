@@ -1,20 +1,4 @@
 
-@app.route("/last_successful_sha")
-def last_success_full_sha():
-    info = {
-        'name': request.args['name'],
-    }
-    assert info['name']
-
-    updates = list(db.updates.find(info).sort([("date", pymongo.DESCENDING)]).limit(1))
-    if updates:
-        return jsonify({
-            'sha': updates[0]['sha']
-        })
-    return jsonify({
-        'sha': '',
-    })
-
 
 def _reset_instance_in_db(name):
     info = {

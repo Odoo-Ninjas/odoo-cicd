@@ -1,4 +1,0 @@
-jira
-arrow
-requests
-git

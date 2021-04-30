@@ -54,14 +54,23 @@ def _odoo_framework(site_name, command):
     if isinstance(command, str):
         command = [command]
 
+
     res = _execute_shell(
         ["/opt/odoo/odoo", "-f", "--project-name", site_name] + command,
         cwd=f"{os.environ['CICD_WORKSPACE']}/cicd_instance_{site_name}",
+        env={
+            'NO_PROXY': "*",
+            'DOCKER_CLIENT_TIMEOUT': "600",
+            'COMPOSE_HTTP_TIMEOUT': "600",
+            'PSYCOPG_TIMEOUT': "120,
+        }
     )
 
-def _execute_shell(command, cwd=None):
+def _execute_shell(command, cwd=None, env=None):
     if isinstance(command, str):
         command = [command]
+
+    env = env or {}
 
     with spur.SshShell(
         hostname=host_ip,
@@ -72,6 +81,8 @@ def _execute_shell(command, cwd=None):
         result = shell.run(
             command,
             cwd=cwd,
+            env={
+            }
             )
     return result
 
@@ -183,3 +194,16 @@ def store_setting(key, value):
 
 
 
+
+def _export_git_values():
+
+    def g(v):
+        git = ['/usr/bin/git', 'show', '-s']
+        return subprocess.check_output(git + [f'--pretty={v}']).decode('utf-8').strip()
+
+    os.environ['GIT_AUTHOR_NAME'] = g("%an")
+    os.environ['GIT_DESC'] = g("%s")
+    os.environ['GIT_SHA'] = g("%H")
+    if not os.getenv("GIT_BRANCH"):
+        if os.getenv("BRANCH_NAME"):
+            os.environ['GIT_BRANCH'] = os.environ['BRANCH_NAME']

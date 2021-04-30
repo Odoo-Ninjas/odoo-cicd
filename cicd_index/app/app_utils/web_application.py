@@ -399,57 +399,6 @@ def restart_delegator():
         'result': 'ok',
     })
 
-@app.route("/set_updating")
-def set_updating():
-    name = request.args['name']
-
-    site = db.sites.find_one({'name': name})
-    if not site:
-        raise Exception(f"site not found: {name}")
-    db.sites.update_one({'_id': site['_id']}, {'$set': {
-        'updating': request.args['value'] in BOOL_VALUES,
-    }}, upsert=False)
-    return jsonify({
-        'result': 'ok',
-    })
-
-@app.route("/notify_instance_updating")
-def notify_instance_updating():
-
-    return jsonify({
-        'result': 'ok',
-    })
-
-@app.route('/register', methods=['POST'])
-def register_site():
-    site = dict(request.json)
-    sites = list(db.sites.find({
-        "git_branch": site['git_branch'],
-    }))
-    result = {'result': 'ok'}
-
-    branch = db.branches.find_one({
-        "git_branch": site['git_branch'],
-    })
-    if not branch:
-        db.branches.insert({
-            'git_branch': site['git_branch'],
-        })
-    else:
-        for key in ['description', 'author']:
-            update = {}
-            if site.get(key):
-                update[key] = site[key]
-            if update:
-                db.branches.update_one({'_id': branch['_id']}, {'$set': update}, upsert=False)
-
-    if not sites:
-        db.sites.insert_one(site)
-        result['existing'] = True
-
-    return jsonify(result)
-
-
 @app.route("/sites")
 def show_sites():
     return jsonify(list(db.sites.find()))

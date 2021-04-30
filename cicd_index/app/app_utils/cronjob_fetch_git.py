@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 import time
 import threading
 from .. import db
@@ -35,6 +36,7 @@ def _get_git_state():
             for branch in new_branches:
                 repo.git.checkout(branch)
                 repo.git.pull()
+                commit = repo.refs[branch].commit
                 instance_folder = WORKSPACE / branch
                 instance_folder.mkdir(exist_ok=True)
                 logger.info(f"Copying source code to {instance_folder}")
@@ -45,6 +47,10 @@ def _get_git_state():
                 }, {'$set': {
                     'name': branch,
                     'needs_build': True,
+                    'git_sha': str(commit),
+                    'git_author': commit.author.name,
+                    'git_desc': commit.message,
+                    'date_registered': datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                 }
                 }, upsert=True)
 
