@@ -1,0 +1,8 @@
+Host *
+    ServerAliveInterval 600
+    PermitLocalCommand yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    Compression yes
+    LogLevel ERROR
+    # ForwardX11 yes

@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 from bson import ObjectId
 import docker as Docker
+from .. import host_ip
 
 docker = Docker.from_env()
 
@@ -72,12 +73,12 @@ def _odoo_framework(site_name, command):
     res = _execute_shell(
         ["/opt/odoo/odoo", "-f", "--project-name", site_name] + command,
         cwd=f"{os.environ['CICD_WORKSPACE']}/cicd_instance_{site_name}",
-        env={
-            'NO_PROXY': "*",
-            'DOCKER_CLIENT_TIMEOUT': "600",
-            'COMPOSE_HTTP_TIMEOUT': "600",
-            'PSYCOPG_TIMEOUT': "120",
-        }
+        # env={
+        #     'NO_PROXY': "*",
+        #     'DOCKER_CLIENT_TIMEOUT': "600",
+        #     'COMPOSE_HTTP_TIMEOUT': "600",
+        #     'PSYCOPG_TIMEOUT': "120",
+        # }
     )
 
 def _execute_shell(command, cwd=None, env=None):
@@ -85,6 +86,7 @@ def _execute_shell(command, cwd=None, env=None):
         command = [command]
 
     env = env or {}
+    # TODO how to pass env to spur?
 
     with spur.SshShell(
         hostname=host_ip,
@@ -95,8 +97,6 @@ def _execute_shell(command, cwd=None, env=None):
         result = shell.run(
             command,
             cwd=cwd,
-            env={
-            }
             )
     return result
 

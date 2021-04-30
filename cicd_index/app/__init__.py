@@ -5,6 +5,8 @@ from flask import Flask
 from bson.json_util import dumps
 import flask_login
 import logging
+from flask_login import login_required
+from pymongo import MongoClient
 
 login_manager = flask_login.LoginManager()
 
@@ -16,7 +18,6 @@ logging.getLogger("werkzeug").setLevel(logging.WARNING)
                      MONGO CONNECTION                                  
 """
 
-from pymongo import MongoClient
 mongoclient = MongoClient(
     os.environ["MONGO_HOST"],
     int(os.environ['MONGO_PORT']),
@@ -25,6 +26,10 @@ mongoclient = MongoClient(
     connectTimeoutMS=20000, socketTimeoutMS=20000, serverSelectionTimeoutMS=20000,
 )
 db = mongoclient.get_database('cicd_sites')
+"""
+                     LOGGING SETUP                                     
+"""
+host_ip = '.'.join(subprocess.check_output(["/usr/bin/hostname", "-I"]).decode('utf-8').strip().split(".")[:3]) + '.1'
 
 """
                      LOGGING SETUP                                     
@@ -33,7 +38,6 @@ FORMAT = '[%(levelname)s] %(name) -12s %(asctime)s %(message)s'
 logging.basicConfig(format=FORMAT)
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger('')  # root handler
-host_ip = '.'.join(subprocess.check_output(["/usr/bin/hostname", "-I"]).decode('utf-8').strip().split(".")[:3]) + '.1'
 logger.info(f"Host IP: {host_ip}")
 
 """

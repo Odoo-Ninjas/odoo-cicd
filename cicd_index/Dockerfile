@@ -13,5 +13,8 @@ WORKDIR /root
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 EXPOSE 5000
+ADD ssh_config /root/.ssh/config
 CMD ["flask", "run"]
 WORKDIR /
+
+RUN apt install -y rsync

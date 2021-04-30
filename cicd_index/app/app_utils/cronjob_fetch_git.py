@@ -21,9 +21,6 @@ def clone(path):
     git.Repo.clone_from(
         URL, 
         path, 
-        env={
-            "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=no"
-        }
     )
 
 if not path.exists():
