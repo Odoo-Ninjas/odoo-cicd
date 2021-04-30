@@ -56,8 +56,8 @@ from .app_utils import cronjob_fetch_git
 
 if os.getenv("CICD_CRONJOBS") == "1":
     cronjob_builder.start()
-    #cronjob_docker.start()
-    #cronjob_fetch_git.start()
+    cronjob_docker.start()
+    cronjob_fetch_git.start()
 
     while True:
         time.sleep(1000)

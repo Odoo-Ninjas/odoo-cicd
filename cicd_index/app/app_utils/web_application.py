@@ -2,7 +2,7 @@ from .. import MAIN_FOLDER_NAME
 import os
 import base64
 import arrow
-from .tools import _delete_sourcecode
+from .tools import _delete_sourcecode, get_output
 from .tools import _get_db_conn
 from pathlib import Path
 from flask import redirect
@@ -25,6 +25,7 @@ from bson import ObjectId
 import logging
 from datetime import datetime
 import docker as Docker
+from .tools import get_output
 logger = logging.getLogger(__name__)
 
 docker = Docker.from_env()
@@ -79,22 +80,10 @@ def trigger_rebuild():
 
 @app.route("/data/site/live_values")
 def site_jenkins():
-    sites = list(db.sites.find())
-    # for site in sites:
-    #     try:
-    #         job = _get_jenkins_job(site['git_branch'])
-    #     except Exception as ex:
-    #         site['last_build'] = f"Error: {ex}"
-    #     else:
-    #         if job:
-    #             last_build = job.get_last_build_or_none()
-    #             if last_build:
-    #                 site['last_build'] = last_build.get_status()
-    #                 site['duration'] = round(last_build.get_duration().total_seconds(), 0)
-    #             site['update_in_progress'] = job.is_running()
-    #         site['docker_state'] = 'running' if _get_docker_state(site['name']) else 'stopped'
-    return jsonify(sites)
-
+    sites = list(db.sites.find({}, {'name': 1, 'is_building': 1, 'duration': 1, 'docker_state': 1}))
+    return jsonify({
+        'sites': sites,
+    })
 
 @app.route("/data/sites", methods=["GET", "POST"])
 def data_variants():
@@ -294,12 +283,12 @@ def build_log():
     output = []
     for heading in [
         ("Last Error", 'last_error'),
-        ("Reload", 'output_reload'),
-        ("Build", 'output_build'),
-        ("Last Update", 'output_update'),
+        ("Reload", 'reload'),
+        ("Build", 'build'),
+        ("Last Update", 'update'),
     ]:
         output.append(f"<h1>{heading[0]}</h1>")
-        output.append(site.get(heading[1], '') or '')
+        output.append(get_output(site['name'], heading[1]))
         
     return render_template(
         'log_view.html',
@@ -351,44 +340,6 @@ def shell_instance():
     return redirect(shell_url)
 
 
-
-@app.route("/notify_instance_updated")
-def notify_instance_updated():
-    info = {
-        'name': request.args['name'],
-        'sha': request.args['sha'],
-    }
-    assert info['name']
-    assert info['sha']
-    for extra_args in [
-        'update_time',
-        'dump_date',
-        'dump_name',
-    ]:
-        info[extra_args] = request.args.get(extra_args)
-
-    info['date'] = arrow.get().strftime("%Y-%m-%d %H:%M:%S")
-
-    db.updates.insert_one(info)
-
-    site = db.sites.find_one({'name': info['name']})
-    if not site:
-        raise Exception(f"site not found: {info['name']}")
-    db.sites.update_one({'_id': site['_id']}, {'$set': {
-        'duration': request.args.get('duration'),
-        'updated': datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-    }}, upsert=False)
-
-    # if there is dump information, then store at site
-    if request.args.get('dump_name'):
-        db.sites.update_one({'_id': site['_id']}, {'$set': {
-            'dump_name': request.args['dump_name'],
-            'dump_date': request.args['dump_date'],
-        }}, upsert=False)
-
-    return jsonify({
-        'result': 'ok'
-    })
 
     
 @app.route("/site", methods=["GET"])

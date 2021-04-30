@@ -43,11 +43,10 @@
         </div>
 
         <script>
-            var update_from_jenkins = null;
+            var update_live_values = null;
 
             function reload_table_item($table, id, data) {
                 var item = $table.getItem(id);
-                console.log(data);
                 for (var key in data) {
                     if (data.hasOwnProperty(key)) {
                         item[key] = data[key];
@@ -56,7 +55,7 @@
                 $table.updateItem(item.id, item);
             }
 
-            update_from_jenkins = function() {
+            update_live_values = function() {
 
                 webix.ajax().get('/cicd/data/site/live_values').then(function(res) {
                     var data = res.json();
@@ -65,7 +64,7 @@
                         var record = data[i];
                         reload_table_item($table, record._id, record);
                     }
-                    setTimeout(update_from_jenkins, 10000);
+                    setTimeout(update_live_values, 5000);
                 });
 
 
@@ -76,13 +75,13 @@
                 webix.ajax().get('/cicd/get_resources').then(function(res) {
                     var $template = $$('resources-view');
                     $("div#resources").html($(res.text()));
-                    setTimeout(update_from_jenkins, 30000);
+                    setTimeout(update_resources, 30000);
                 });
 
             }
 
             // start live valuen
-            setTimeout(update_from_jenkins, 0);
+            setTimeout(update_live_values, 0);
             setTimeout(update_resources, 0);
 
             function backup_db() {
@@ -504,7 +503,7 @@
                                 { id: 'name', header: 'Name', minWidth: 150},
                                 { id: 'title', header: 'Title', minWidth: 180},
                                 { id: 'last_build', header: 'Last Build', minWidth: 80},
-                                { id: 'update_in_progress', header: 'Building', template: "{common.checkbox()}", disable: true},
+                                { id: 'is_building', header: 'Building', template: "{common.checkbox()}", disable: true},
                                 { id: 'docker_state', header: 'Docker', },
                                 { id: 'updated', header: 'Updated', minWidth: 150,},
                                 { id: 'duration', header: 'Duration [s]'},

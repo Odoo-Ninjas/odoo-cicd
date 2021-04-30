@@ -14,9 +14,12 @@ import requests
 import time
 import arrow
 import click
+from .tools import _get_repo
 from dotenv import load_dotenv
 from datetime import datetime
 from .tools import _store
+from git import Repo
+from .tools import store_output, get_output
 logger = logging.getLogger(__name__)
 
 
@@ -64,6 +67,24 @@ DB_PORT={}
         os.environ['DB_PORT'],
     ))
 
+def notify_instance_updated(site):
+    import pudb;pudb.set_trace()
+    repo = _get_repo(site['name'])
+    sha = str(repo.refs.HEAD.commit)
+    info = {
+        'name': site['name'],
+        'sha': sha,
+    }
+    info['date'] = arrow.get().to('utc').strftime("%Y-%m-%d %H:%M:%S")
+    db.updates.insert_one(info)
+
+def _last_success_full_sha(site):
+    info = {'name': site['name']}
+    updates = list(db.updates.find(info).sort([("date", pymongo.DESCENDING)]).limit(1))
+    if updates:
+        return updates[0]['sha']
+
+
 def make_instance(site, use_dump):
     logger.info(f"BUILD CONTROL: Making Instance for {site['name']}")
     _make_instance_docker_configs(site)
@@ -72,13 +93,13 @@ def make_instance(site, use_dump):
         site['name'], 
         ["reload", '-d', site['name'], '--headless', '--devmode']
     )
-    _store(site['name'], {'output_reload': output})
+    store_output(site['name'], 'reload', output)
 
     output = _odoo_framework(
         site['name'], 
         ["build"], # build containers; use new pip packages
     )
-    _store(site['name'], {'output_build': output})
+    store_output(site['name'], 'build', output)
 
     dump_date, dump_name = None, None
     if use_dump:
@@ -101,28 +122,21 @@ def make_instance(site, use_dump):
         _odoo_framework(site, ["db", "reset"])
 
     output = _odoo_framework(site, ["update"])
-    _store(site['name'], {'output_update': output})
+    store_output(site['name'], 'update', output)
 
     _odoo_framework(site, ["turn-into-dev", "turn-into-dev"])
     _odoo_framework(site, ["set-ribbon", site['name']])
 
-def _last_success_full_sha(site):
-    info = {'name': site['name']}
-    updates = list(db.updates.find(info).sort([("date", pymongo.DESCENDING)]).limit(1))
-    if updates:
-        return updates[0]['sha']
 
 
 def build_instance(site):
     started = arrow.get()
     _store(site['name'], {
-        'output_build': "",
-        'output_reload': "",
-        'output_update': "",
         "is_building": True,
         "build_started": started.to("utc").strftime("%Y-%m-%d %H:%M:%S"),
         })
     try:
+        import pudb;pudb.set_trace()
         dump_name = site.get('dump') or os.getenv("DUMP_NAME")
 
         logger.info(f"Updating instance {site.get('name')}")
@@ -143,9 +157,11 @@ def build_instance(site):
                     ["update", "--no-dangling-check", "--since-git-sha", last_sha, "--i18n"]
                 )
 
-            _store(site['name'], {'output_update': output})
+            store_output(site['name'], 'update', output)
 
             _odoo_framework(["up", "-d"])
+
+        notify_instance_updated(site)
 
     except Exception as ex:
         success = False
@@ -153,6 +169,7 @@ def build_instance(site):
 
     finally:
         success = True
+    import pudb;pudb.set_trace()
     
     db.sites.update_one({
         'name': site['name'],
@@ -162,6 +179,7 @@ def build_instance(site):
         'success': success,
         'force_rebuild': False,
         'do-build-all': False,
+        'updated': datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         'duration': (arrow.get() - started).total_seconds(),
     }
     }, upsert=False)

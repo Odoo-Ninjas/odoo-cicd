@@ -49,14 +49,14 @@ def _get_git_state():
                         if repo.refs[name].commit != fi.commit:
                             new_branches.append(name)
 
-            logger.info(f"New Branches detected: {new_branches}")
+            logger.debug(f"New Branches detected: {new_branches}")
             for branch in new_branches:
                 repo.git.checkout(branch)
                 repo.git.pull()
                 commit = repo.refs[branch].commit
                 instance_folder = WORKSPACE / branch
                 instance_folder.mkdir(exist_ok=True)
-                logger.info(f"Copying source code to {instance_folder}")
+                logger.debug(f"Copying source code to {instance_folder}")
                 subprocess.run(["rsync", str(path) + "/", str(instance_folder) + "/", "-ar"]) # , "--exclude=.git"]) building needs git...
             
                 db.sites.update_one({

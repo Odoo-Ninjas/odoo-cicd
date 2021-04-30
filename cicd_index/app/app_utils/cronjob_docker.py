@@ -12,7 +12,7 @@ client = Docker.from_env()
 def _get_docker_states_background():
     while True:
         try:
-            logger.info("Getting docker state from jenkins")
+            logger.debug("Getting docker state from jenkins")
             sites = list(db.sites.find({}))
             for site in sites:
                 site['docker_state'] = 'running' if _get_docker_state(site['name']) else 'stopped'
@@ -22,7 +22,7 @@ def _get_docker_states_background():
                     'docker_state': site['docker_state'],
                 }
                 }, upsert=False)
-            logger.info(f"Finished updating docker job for {len(sites)} sites.")
+            logger.debug(f"Finished updating docker job for {len(sites)} sites.")
         except Exception as ex:
             logger.error(ex)
 
@@ -38,7 +38,7 @@ def cycle_down_apps():
                 logger.debug(f"Checking site to cycle down: {site['name']}")
                 if (arrow.get() - arrow.get(site.get('last_access', '1980-04-04') or '1980-04-04')).total_seconds() > 2 * 3600: # TODO configurable
                     if _get_docker_state(site['name']) == 'running':
-                        logger.info(f"Cycling down instance due to inactivity: {site['name']}")
+                        logger.debug(f"Cycling down instance due to inactivity: {site['name']}")
                         _odoo_framework(site['name'], 'kill')
 
         except Exception as e:

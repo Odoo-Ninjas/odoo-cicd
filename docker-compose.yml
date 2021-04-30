@@ -41,7 +41,7 @@ services:
     expose:
         - 5000
     environment:
-        # FLASK_ENV: development
+        FLASK_ENV: development
         CICD_CRONJOBS: 0
         FLASK_APP: app
         DISPLAY_TIMEZONE: Europe/Berlin

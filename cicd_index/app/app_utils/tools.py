@@ -14,6 +14,7 @@ from bson import ObjectId
 import docker as Docker
 import logging
 from .. import host_ip
+from git import Repo
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +88,10 @@ def _odoo_framework(site_name, command):
     )
     output = stdout + '\n' + stderr
     if res == 'error':
-        _store(site_name, {'last_error': output})
+        store_output(site_name, 'last_error', output)
         raise OdooFrameworkException(output)
 
-    _store(site_name, {'last_error': ""})
+    store_output(site_name, 'last_error', '')
     return output
 
 def _execute_shell(command, cwd=None, env=None):
@@ -146,7 +147,8 @@ def _get_resources():
 Mem:       32165168    11465300      246788      401468    20453080    19849564
 Swap:             0           0           0
     """
-    ram = [x for x in _execute_shell("/usr/bin/free").output.decode('utf-8').split("\n") if 'Mem:' in x][0].strip()
+    res, stdout, stderr = _execute_shell("/usr/bin/free")
+    ram = [x for x in stdout.split("\n") if 'Mem:' in x][0].strip()
     while '\t' in ram or '  ' in ram:
         ram = ram.replace("\t", "")
         ram = ram.replace("  ", " ")
@@ -166,13 +168,15 @@ def _delete_dockercontainers(name):
         if container.status == 'running':
             container.kill()
         container.remove(force=True)
+
+def _get_src_path(name):
+    path = Path("/cicd_workspace") / name
+    return path
     
 def _delete_sourcecode(name):
-
-    path = Path("/cicd_workspace") / name
-    if not path.exists():
-        return
-    shutil.rmtree(path)
+    path = _get_src_path(name)
+    if path.exists():
+        shutil.rmtree(path)
 
 def _drop_db(cr, dbname):
     # Version 13:
@@ -262,3 +266,24 @@ def _store(sitename, info, upsert=False):
     }, {
         '$set': info,
     }, upsert=upsert)
+
+def _get_repo(sitename):
+    path = _get_src_path(sitename)
+    return Repo(path)
+
+def store_output(sitename, ttype, output):
+    db.outputs.update_one({
+        'name': sitename,
+        'ttype': ttype
+    }, {
+        '$set': {
+            'log': output
+        }
+    }, upsert=True
+    )
+
+def get_output(sitename, ttype):
+    rec = db.outputs.find_one({'sitename': sitename, 'ttype': ttype})
+    if not rec:
+        return ""
+    return rec['log']
