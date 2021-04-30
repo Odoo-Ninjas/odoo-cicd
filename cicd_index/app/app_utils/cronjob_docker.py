@@ -1,6 +1,7 @@
 import logging
 import time
 import threading
+from .. import db
 logger = logging.getLogger(__name__)
 
 def _get_docker_state():

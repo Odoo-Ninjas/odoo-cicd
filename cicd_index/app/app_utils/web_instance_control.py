@@ -2,6 +2,7 @@ from .. import app
 from pathlib import Path
 import docker as Docker
 from .tools import _odoo_framework
+from flask import jsonify
 
 docker = Docker.from_env()
 
