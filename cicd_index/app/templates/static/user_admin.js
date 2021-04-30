@@ -1,6 +1,52 @@
 {% include "static/tools.js" %}
 
 
+function delete_user() {
+    var form = webix.ui({
+        view: "window", 
+        position: 'center',
+        modal: true,
+        head: "Delete Instance",
+        width: 550,
+        body: {
+            view: 'form',
+            complexData: true,
+            elements: [
+                // { view:"combo", name: 'dump', label:"Dump", options: dumps },
+                { view: 'template', template: "Delete user"},
+                {
+                    cols:[
+                        { view:"button", value:"OK", css:"webix_primary", click: function() { 
+                                var values = this.getParentView().getFormView().getValues();
+                                form.hide();
+                                webix.message("Deleting in Background", "info");
+                                webix.ajax().post('/cicd/data/user/delete', {
+                                    'id': current_details,
+                                }).then(function(data) {
+                                    webix.message("User erased: " + current_details, "info");
+                                    reload_table($$("table-users"));
+                                    form.hide();
+                                }).fail(function(data) {
+                                    alert(data.statusText);
+                                    console.error(data.responseText);
+                                });
+                                }
+                        },
+                        { view:"button", value:"Cancel", click: function() {
+                            form.hide();
+                        }}
+                    ]
+                }
+            ],
+            on: {
+                'onSubmit': function() {
+                },
+            }
+        }
+    });
+    form.show();
+}
+
 function new_user() {
     edit_user('new');
 }
@@ -65,46 +111,11 @@ function reload_user_details(id) {
         template.data = data.json()[0];
         template.refresh();
         template.show();
-        $$('site-toolbar').hide();
-        current_user = id;
+        current_details = id;
     }).fail(function(response) {
         webix.message("Error: " + response.statusText, "error");
     });
 }
-
-var menu = {
-    view: "menu",
-    autowidth: true,
-    width: 120,
-    type: {
-        subsign: true,
-    },
-    data: [
-        {
-            id: "settings_mainmenu",
-            view: "menu",
-            value: "Admin...",
-            config: { on: { onItemClick: clicked_menu}},
-            submenu: [
-                { view:"button", id:"settings", value:"Settings", click: function() {
-                    settings();
-                }},
-                { $template:"Separator" },
-                /*
-                { view:"button", id:"build_again", value:"Update recently changed modules" },
-                { view:"button", id:"build_again_all", value:"Update all modules" },
-                { view:"button", id:"rebuild", value:"Rebuild from Dump (Data lost)" },
-                { $template:"Separator" },
-                { view:"button", id:"backup_db", value:"Make Database Dump", click: backup_db },
-                { $template:"Separator" },
-                { view:"button", id:"turn_into_dev", value: 'Apply Developer Settings (Password, Cronjobs)', click: turn_into_dev}
-                */
-            ]
-        },
-
-    ],
-}
-    
 
 webix.ui({
     type: 'wide',
@@ -185,11 +196,9 @@ webix.ui({
                 view: 'toolbar',
                 css: "webix_dark",
                 id: 'site-toolbar',
-                hidden: true,
                 elements: [
-                    menu,
+                    { view:"button", id:"delete_user", value:"Delete", width:150, align:"left", click: delete_user },
                     /*
-                    { view:"button", id:"build_log", value:"Last Job Log", width:150, align:"left", click: build_log },
                     { view:"button", id:"start", value:"Open UI", width:100, align:"right", click: start_instance },
                     { view:"button", id:"start_mails", value:"Mails", width:100, align:"right", click: show_mails },
                     { view:"button", id:"start_logging", value:"Live Log", width:100, align:"right", click: show_logs },

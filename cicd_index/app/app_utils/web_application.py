@@ -463,6 +463,12 @@ def data_users():
         user['all_sites'] = list(db.sites.find({}, {'name': 1}))
     return jsonify(users)
 
+@app.route("/data/user/delete", methods=["POST"])
+def data_users_delete():
+    filter = {'_id': ObjectId(request.form.get('id'))}
+    db.users.remove(filter)
+    return jsonify({'result': 'ok'})
+
 @app.route("/data/user_sites", methods=["GET", "POST"])
 def data_user_sites():
     _filter = {}
