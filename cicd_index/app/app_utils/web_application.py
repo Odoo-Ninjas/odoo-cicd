@@ -494,3 +494,10 @@ def data_user_sites():
 
         db.users.update_one(_filter, {"$set": user})
         return jsonify({"result": "ok"})
+
+@app.route("/start_info")
+def start_info():
+    u = flask_login.current_user
+    return jsonify({
+        'is_admin': u.is_authenticated and u.is_admin
+    })

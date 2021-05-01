@@ -1,5 +1,8 @@
 {% include "static/tools.js" %}
 
+webix.ajax().get('/cicd/start_info').then(function(startinfo) {
+    startinfo = startinfo.json();
+
 var update_live_values = null;
 
 update_live_values = function() {
@@ -48,7 +51,7 @@ function backup_db() {
                     cols:[
                         {
                             view:"button", value:"OK", css:"webix_primary", click: function() { 
-                                var values = this.getParentView().getFormView().getValues();
+                               var values = this.getParentView().getFormView().getValues();
                                 webix.ajax().get('/cicd/dump', {
                                     'name': current_details,
                                     'dumpname': values['dumpname'],
@@ -273,16 +276,16 @@ function settings(){
 
 var current_details = null;
 function reload_details(name) {
-webix.ajax().get('/cicd/data/sites?name=' + name).then(function(data) {
-    var template = $$('webix-instance-details');
-    template.data = data.json()[0];
-    template.refresh();
-    template.show();
-    $$('site-toolbar').show();
-    current_details = name;
-}).fail(function(response) {
-    webix.message("Error: " + response.statusText, "error");
-});
+    webix.ajax().get('/cicd/data/sites?name=' + name).then(function(data) {
+        var template = $$('webix-instance-details');
+        template.data = data.json()[0];
+        template.refresh();
+        template.show();
+        $$('site-toolbar').show();
+        current_details = name;
+    }).fail(function(response) {
+        webix.message("Error: " + response.statusText, "error");
+    });
 }
 
 function show_reset_form(name) {
@@ -463,12 +466,12 @@ webix.ui({
                 hidden: true,
                 elements: [
                     menu,
-                    { view:"button", id:"build_log", value:"Last Job Log", width:150, align:"left", click: build_log },
-                    { view:"button", id:"start", value:"Open UI", width:100, align:"right", click: start_instance },
-                    { view:"button", id:"start_mails", value:"Mails", width:100, align:"right", click: show_mails },
-                    { view:"button", id:"start_logging", value:"Live Log", width:100, align:"right", click: show_logs },
-                    { view:"button", id:"start_shell", value:"Shell", width:100, align:"right", click: shell },
-                    { view:"button", id:"start_debugging", value:"Debug", width:100, align:"right", click: debug },
+                    { view:"button", id:"build_log", value:"Build Log", width:150, align:"left", click: build_log, batch: 'admin' },
+                    { view:"button", id:"start", value:"Open UI", width:100, align:"right", click: start_instance, batch: 'user' },
+                    { view:"button", id:"start_mails", value:"Mails", width:100, align:"right", click: show_mails, batch: 'user' },
+                    { view:"button", id:"start_logging", value:"Live Log", width:100, align:"right", click: show_logs, batch: 'admin' },
+                    { view:"button", id:"start_shell", value:"Shell", width:100, align:"right", click: shell, batch: 'admin' },
+                    { view:"button", id:"start_debugging", value:"Debug", width:100, align:"right", click: debug, batch: 'admin' },
                 ],
             },
             {
@@ -486,3 +489,10 @@ webix.ui({
 });
 
 webix.ui.fullScreen();
+
+if (!startinfo.is_admin) {
+    $$("site-toolbar").showBatch('admin', false);
+    $$("site-toolbar-common").showBatch('admin', false);
+}
+
+});
