@@ -11,7 +11,6 @@ function reload_table(table) {
 }
 
 function reload_table_item($table, id, data) {
-    debugger;
     var item = $table.getItem(id);
     if (item) {
         return;
@@ -22,4 +21,8 @@ function reload_table_item($table, id, data) {
         }
     }
     $table.updateItem(item.id, item);
+}
+
+function logout() {
+    window.location = '/cicd/logout';
 }

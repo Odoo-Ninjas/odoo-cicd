@@ -1,10 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.center-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 100vh;
+}
+div, form {
+    font-family:courier,arial,helvetica;
+}
+</style>
+
+<div class='center-screen'>
 <form action="/cicd/login" method="POST">
-    <div>Please enter your email address:</div>
-    <input type="username" name="username" placeholder="email">
-    <input type="password" name="password" placeholder="password"/>
+    <img src="/cicd/static/img/cicd.png"/>
+    <br/>
+    {% if request.args.get('error') %}
+    <div class="error">Error at login</div>
+
+    {% endif %}
+    <div>
+    <input type="username" name="username" placeholder="Login">
+    <input type="password" name="password" placeholder="Password"/>
     <input type="submit" value="Login">
+    </div>
 </form>
+</div>
 
 {% endblock %}

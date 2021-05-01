@@ -38,7 +38,7 @@ def user_loader(email):
 @app.route('/logout')
 def logout():
     flask_login.logout_user()
-    return 'Logged out'
+    return redirect("/cicd/login")
 
 @app.route('/login', methods=['GET'])
 def login():
@@ -64,8 +64,8 @@ def login_post():
         user = User()
         user.id = email
         flask_login.login_user(user)
-        return flask.redirect('/')
-    return flask.redirect(flask.url_for('login'))
+        return flask.redirect('/index')
+    return flask.redirect("/cicd/login?error=1")
     
 @login_manager.unauthorized_handler
 def unauthorized_handler():

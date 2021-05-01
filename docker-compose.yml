@@ -38,6 +38,8 @@ services:
     networks:
         - internal
     restart: "unless-stopped"
+    # ports:
+    #     - "0.0.0.0:5000:5000"
     expose:
         - 5000
     environment:

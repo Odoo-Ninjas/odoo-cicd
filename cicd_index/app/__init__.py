@@ -65,7 +65,8 @@ if os.getenv("CICD_CRONJOBS") == "1":
 else:
     app = Flask(
         __name__,
-        static_folder='/_static_index_files',
+        static_url_path='/static', 
+        static_folder='templates/static'
     )
     app.secret_key = 'asajdkasj24242184*$@'
     from .app_utils.tools import JSONEncoder

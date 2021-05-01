@@ -367,29 +367,44 @@ var menu = {
     ],
 }
 
-
-webix.ui({
-    type: 'wide',
-    cols: [
+webix.ui(
         {
             view: "sidemenu",
             id: "sidemenu1",
-            width: 200,
-            position: "left",
+            css: "webix_dark",
             body:{
                 view:"list",
                 borderless:true,
                 scroll: false,
-                template: "<span class='webix_icon fa-#icon#'></span> #value#",
+                template: "<span style='margin-right: 10px;' class='webix_icon fas fa-#icon#'></span> #value#",
+                on:{
+                    onItemClick: clicked_menu,
+                },
                 data:[
                     {id: 1, value: "Customers", icon: "user"},
-                    {id: 2, value: "Products", icon: "cube"},
-                    {id: 3, value: "Reports", icon: "line-chart"},
-                    {id: 4, value: "Archives", icon: "database"},
-                    {id: 5, value: "Settings", icon: "cog"}
+                    { view:"button", id:"restart_delegator", icon: 'recycle', value:"Restart Docker Delegator", click: clicked_menu, batch: 'admin'},
+                    { view:"button", id:"start_all", icon: 'play', value:"Start All Docker Containers", click: clicked_menu, batch: 'admin'},
+                    { view:"button", id:"delete_unused", icon: 'eraser', value:"Spring Clean", click: delete_unused, batch: 'admin'},
+                    { view:"button", id:"users_admin", value:"Users", icon: "users", batch: 'admin', click: function() {
+                            location = '/cicd/user_admin';
+
+                        },
+                    },
+                    { view:"button", id:"logout", value:"Logout", icon: "sign-out-alt", batch: 'user', click: function() {
+                            location = '/cicd/logout';
+
+                        },
+                    }
+
+
                 ]
             }
         },
+);
+
+webix.ui({
+    type: 'wide',
+    cols: [
         {
             rows: [
                 {view: "toolbar", id:"toolbar_header", elements:[
@@ -397,9 +412,8 @@ webix.ui({
 
                         view: "icon", icon: "fas fa-bars",
                         click: function(){
-                            debugger;
                             if( $$("sidemenu1").config.hidden){
-                                $$("sidemenu1").show();
+                                $$("sidemenu1").show(false, false);
                             }
                             else
                                 $$("sidemenu1").hide();
@@ -412,21 +426,6 @@ webix.ui({
                         template: "CICD Feature Branches"
                     },
                 ]},
-                {
-                    view: 'toolbar',
-                    css: "webix_dark",
-                    id: 'site-toolbar-common',
-                    elements: [
-                        { view:"button", id:"restart_delegator", value:"Restart Docker Delegator", click: clicked_menu, batch: 'admin'},
-                        { view:"button", id:"start_all", value:"Start All Docker Containers", click: clicked_menu, batch: 'admin'},
-                        { view:"button", id:"delete_unused", value:"Spring Clean", click: delete_unused, batch: 'admin'},
-                        { view:"button", id:"users_admin", value:"Users", batch: 'admin', click: function() {
-                                location = '/cicd/user_admin';
-
-                            },
-                        }
-                    ],
-                },
                 {
                     id: "resources-view",
                     view: "template",
@@ -443,9 +442,8 @@ webix.ui({
                         var columns = table.config.columns;
                         table.filter(function(obj){
                             for (var i=0; i<columns.length; i++) {
-                            debugger;
                                 if (obj[columns[i].id].toString().toLowerCase().indexOf(text) !== -1) return true;
-                            return false;
+                                return false;
                             }
                         })
                         }
@@ -527,6 +525,7 @@ webix.ui.fullScreen();
 if (!startinfo.is_admin) {
     $$("site-toolbar").showBatch('admin', false);
     $$("site-toolbar-common").showBatch('admin', false);
+    $$("sidemenu1").showBatch('admin', false);
 }
 
 });
