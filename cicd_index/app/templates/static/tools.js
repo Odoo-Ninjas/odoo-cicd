@@ -26,3 +26,7 @@ function reload_table_item($table, id, data) {
 function logout() {
     window.location = '/cicd/logout';
 }
+
+function users_admin() {
+    location = '/cicd/user_admin';
+}

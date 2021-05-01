@@ -74,6 +74,7 @@ else:
     login_manager.init_app(app)
     from .app_utils import auth
     from .app_utils import web_application
+    from .app_utils import web_user_admin
     from .app_utils import web_instance_control
     from .app_utils.tools import JSONEncoder
     from . import app_utils

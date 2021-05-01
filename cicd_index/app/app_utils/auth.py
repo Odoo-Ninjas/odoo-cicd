@@ -17,21 +17,21 @@ class User(flask_login.UserMixin):
 
 
 @login_manager.user_loader
-def user_loader(email):
+def user_loader(login):
     # if email not in users:
     #     return
 
     user = User()
 
-    if email != ADMIN_USER:
-        userdb = db.users.find_one({'name': email})
+    if login != ADMIN_USER:
+        userdb = db.users.find_one({'login': login})
         if not userdb:
             raise Exception("Unauthorized")
 
         user.is_admin = False
     else:
         user.is_admin = True
-    user.id = email
+    user.id = login
     user.is_authenticated = True
     return user
 
@@ -49,20 +49,20 @@ def login():
 
 @app.route('/login', methods=['POST'])
 def login_post():
-    email = flask.request.form['username']
+    login = flask.request.form['username']
     authorized = False
     password = flask.request.form['password']
     
-    if email == ADMIN_USER:
+    if login == ADMIN_USER:
         authorized = password == os.getenv("PASSWD")
     else:
-        user = db.users.find_one({'name': email}, {'password': 1})
+        user = db.users.find_one({'login': login}, {'password': 1})
         if user:
             authorized = password == user.get('password')
     
     if authorized:
         user = User()
-        user.id = email
+        user.id = login
         flask_login.login_user(user)
         return flask.redirect('/index')
     return flask.redirect("/cicd/login?error=1")

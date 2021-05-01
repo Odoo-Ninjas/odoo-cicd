@@ -70,6 +70,7 @@ function edit_user(id) {
                     { view: 'text', name: 'login', label: "Login" },
                     { view: 'text', name: 'name', label: "Name" },
                     { view: "checkbox", name: 'is_admin', label:"Is Admin" },
+                    { view: "text", name: 'password', label:"Password" },
                     {
                         cols:[
                             { view:"button", value:"OK", css:"webix_primary", click: function() { 
@@ -210,7 +211,8 @@ webix.ui({
                 css: "webix_dark",
                 id: 'site-toolbar',
                 elements: [
-                    { view:"button", id:"delete_user", value:"Delete", width:150, align:"left", click: delete_user },
+                    { view:"button", id:"edit_user", value:"Edit", width:150, align:"left", click: clicked_menu },
+                    { view:"button", id:"delete_user", value:"Delete", width:150, align:"right", click: clicked_menu },
                     /*
                     { view:"button", id:"start", value:"Open UI", width:100, align:"right", click: start_instance },
                     { view:"button", id:"start_mails", value:"Mails", width:100, align:"right", click: show_mails },

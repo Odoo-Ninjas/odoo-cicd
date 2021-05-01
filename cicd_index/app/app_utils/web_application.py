@@ -41,17 +41,6 @@ def index_func():
         DATE_FORMAT=os.environ['DATE_FORMAT'].replace("_", "%"),
     )
 
-@app.route('/user_admin')
-@login_required
-def users_index():
-
-    if flask_login.current_user.is_authenticated and flask_login.current_user.is_admin:
-        return render_template(
-            'user_admin.html',
-            DATE_FORMAT=os.environ['DATE_FORMAT'].replace("_", "%"),
-        )
-    raise Exception("unauthorized")
-
 @app.route("/possible_dumps")
 def possible_dumps():
     path = Path("/opt/dumps")
@@ -101,6 +90,8 @@ def site_jenkins():
 @app.route("/data/sites", methods=["GET", "POST"])
 def data_variants():
     _filter = {}
+    user = flask_login.current_user
+        
     if request.args.get('git_branch', None):
         _filter['git_branch'] = request.args['git_branch']
     if request.args.get('name', None):
@@ -115,6 +106,10 @@ def data_variants():
         site['id'] = site['_id']
         site['update_in_progress'] = False
         site['repo_url'] = f"{os.environ['REPO_URL']}/-/commit/{site.get('git_sha')}"
+
+    if user.is_authenticated and not user.is_admin:
+        user_db = db.users.find_one({'login': user.id})
+        sites = [x for x in sites if x['name'] in user_db.get('sites')]
 
     return jsonify(sites)
 
@@ -431,70 +426,7 @@ def last_access():
         }, upsert=False)
     return jsonify({'result': 'ok'})
 
-@app.route("/data/user", methods=["GET"])
-def data_user_get():
-    if request.args.get('id') == 'new':
-        return jsonify([{}])
-    filter = {}
-    if request.args.get('id'):
-        filter = {'_id': ObjectId(request.args.get('id'))}
-    user = db.users.find_one(filter)
-    return jsonify([user])
 
-@app.route("/data/user", methods=["POST"])
-def data_user_post():
-    filter = {}
-    f = request.form
-    from .auth import ADMIN_USER
-    if f['login'].lower() == ADMIN_USER.lower():
-        raise Exception("invalid user name")
-    db.users.update_one({'login': f['login']},
-                        {"$set": f},
-                        upsert=True)
-
-    return jsonify(request.form)
-
-@app.route("/data/users", methods=["GET", "POST"])
-def data_users():
-    filter = {}
-    if request.args.get('id'):
-        filter = {'_id': ObjectId(request.args.get('id'))}
-    users = list(db.users.find(filter))
-    for user in users:
-        user['all_sites'] = list(db.sites.find({}, {'name': 1}))
-    return jsonify(users)
-
-@app.route("/data/user/delete", methods=["POST"])
-def data_users_delete():
-    filter = {'_id': ObjectId(request.form.get('id'))}
-    db.users.remove(filter)
-    return jsonify({'result': 'ok'})
-
-@app.route("/data/user_sites", methods=["GET", "POST"])
-def data_user_sites():
-    _filter = {'_id': ObjectId(request.args.get('user_id', request.form.get('user_id')))}
-    user = db.users.find_one(_filter, {'name': 1, 'sites': 1}) or {}
-    user.setdefault('sites', [])
-
-    if request.method == "GET":
-        sites = []
-        for site in db.sites.find({}, {'name': 1}):
-            sites.append({
-                'name': site['name'],
-                'allowed': site['name'] in user['sites'],
-            })
-        return jsonify(sites)
-    else:
-        name = request.form['name']
-        if request.form['allowed'] == '1':
-            user['sites'].append(name)
-        else:
-            if name in user['sites']:
-                user['sites'].remove(name)
-        user['sites'] = list(set(user['sites']))
-
-        db.users.update_one(_filter, {"$set": user})
-        return jsonify({"result": "ok"})
 
 @app.route("/start_info")
 def start_info():

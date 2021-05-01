@@ -386,18 +386,8 @@ webix.ajax().get('/cicd/start_info').then(function(startinfo) {
                         { view:"button", id:"restart_delegator", icon: 'recycle', value:"Restart Delegator", batch: 'admin'},
                         { view:"button", id:"start_all", icon: 'play', value:"Start All Docker Containers", batch: 'admin', click: clicked_menu,},
                         { view:"button", id:"delete_unused", icon: 'eraser', value:"Spring Clean", batch: 'admin'},
-                        { view:"button", id:"users_admin", value:"Users", icon: "users", batch: 'admin', click: function() {
-                                location = '/cicd/user_admin';
-
-                            },
-                        },
-                        { view:"button", id:"logout", value:"Logout", icon: "sign-out-alt", batch: 'user', click: function() {
-                                location = '/cicd/logout';
-
-                            },
-                        }
-
-
+                        { view:"button", id:"users_admin", value:"Users", icon: "users", batch: 'admin' },
+                        { view:"button", id:"logout", value:"Logout", icon: "sign-out-alt", batch: 'user'},
                     ]
                 }
             },
