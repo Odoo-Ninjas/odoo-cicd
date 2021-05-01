@@ -71,10 +71,10 @@ def _reload_instance(site):
 @app.route('/trigger/rebuild')
 def trigger_rebuild():
     site = db.sites.find_one({'name': request.args['name']})
-    _odoo_framework(site, ['db', 'reset'])
     db.updates.remove({'name': site['name']})
     db.sites.update_one({'name': request.args.get('name')}, {'$set': {
         'needs_build': True,
+        'reset-db': True,
     }}, upsert=False)
     return jsonify({
         'result': 'ok',

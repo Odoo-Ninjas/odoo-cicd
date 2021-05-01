@@ -140,6 +140,8 @@ def build_instance(site):
             dump_name = site.get('dump') or os.getenv("DUMP_NAME")
 
             last_sha = _last_success_full_sha(site)
+            if site.get('reset-db'):
+                _odoo_framework(site, ['db', 'reset'])
 
             if not last_sha or site.get('force_rebuild'):
                 logger.debug(f"Make new instance: force rebuild: {site.get('force_rebuild')} / last sha: {last_sha and last_sha.get('sha')}")
@@ -175,6 +177,7 @@ def build_instance(site):
             'success': success,
             'force_rebuild': False,
             'do-build-all': False,
+            'reset-db': False,
             'updated': datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             'duration': (arrow.get() - started).total_seconds(),
         }

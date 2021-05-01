@@ -300,7 +300,7 @@ var form_reset = webix.ui({
         complexData: true,
         elements: [
             // { view:"combo", name: 'dump', label:"Dump", options: dumps },
-            { view: 'template', template: "Jenkins is triggered to rebuild the instance. Will take some time, until instance is up again."},
+            { view: 'template', template: "Rebuilding the instance in background. Will take some time, until instance is up again."},
             {
                 cols:[
                     { view:"button", value:"OK", css:"webix_primary", click: function() { 
@@ -470,12 +470,11 @@ webix.ajax().get('/cicd/start_info').then(function(startinfo) {
                         columns:[
                             { id: 'name', header: 'Name', minWidth: 150},
                             { id: 'title', header: 'Title', minWidth: 180},
-                            { id: 'success', header: 'Success', minWidth: 80},
+                            { id: 'success', header: 'Success', template: "{common.checkbox()}", disable: true, minWidth: 80},
                             { id: 'is_building', header: 'Building', template: "{common.checkbox()}", disable: true},
                             { id: 'docker_state', header: 'Docker', },
-                            { id: 'updated', header: 'Updated', minWidth: 150,},
+                            //{ id: 'updated', header: 'Updated', minWidth: 150,},
                             { id: 'duration', header: 'Duration [s]'},
-                            { id: 'delete', header: 'Delete', },
                         ],
                     },
                 ]
