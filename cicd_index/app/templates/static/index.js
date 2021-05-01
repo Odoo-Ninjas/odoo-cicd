@@ -331,39 +331,40 @@ form_reset.show();
 }
 
 var menu = {
-view: "menu",
-autowidth: true,
-width: 120,
-type: {
-    subsign: true,
-},
-data: [
-    {
-        id: "settings_mainmenu",
-        view: "menu",
-        value: "Admin...",
-        config: { on: { onItemClick: clicked_menu}},
-        submenu: [
-            { view:"button", id:"settings", value:"Settings", click: function() {
-                settings();
-            }},
-            { $template:"Separator" },
-            { view:"menu", id: "build_submenu", value: "Lifecycle", autowidth: true, config: { on: { onItemClick: clicked_menu}}, data: [
-                { view:"button", id:"restart", value:"Restart"},
-                { view:"button", id:"delete_instance", value:"Destroy (unrecoverable)", click: delete_instance },
-            ]
-            },
-            { $template:"Separator" },
-            { view:"button", id:"build_again", value:"Update recently changed modules" },
-            { view:"button", id:"build_again_all", value:"Update all modules" },
-            { view:"button", id:"rebuild", value:"Rebuild from Dump (Data lost)" },
-            { $template:"Separator" },
-            { view:"button", id:"backup_db", value:"Make Database Dump", click: backup_db },
-            { $template:"Separator" },
-            { view:"button", id:"turn_into_dev", value: 'Apply Developer Settings (Password, Cronjobs)', click: turn_into_dev}
-        ]
+    view: "menu",
+    batch: "admin",
+    autowidth: true,
+    width: 120,
+    type: {
+        subsign: true,
     },
-],
+    data: [
+        {
+            id: "settings_mainmenu",
+            view: "menu",
+            value: "Admin...",
+            config: { on: { onItemClick: clicked_menu}},
+            submenu: [
+                { view:"button", id:"settings", value:"Settings", click: function() {
+                    settings();
+                }},
+                { $template:"Separator" },
+                { view:"menu", id: "build_submenu", value: "Lifecycle", autowidth: true, config: { on: { onItemClick: clicked_menu}}, data: [
+                    { view:"button", id:"restart", value:"Restart"},
+                    { view:"button", id:"delete_instance", value:"Destroy (unrecoverable)", click: delete_instance },
+                ]
+                },
+                { $template:"Separator" },
+                { view:"button", id:"build_again", value:"Update recently changed modules" },
+                { view:"button", id:"build_again_all", value:"Update all modules" },
+                { view:"button", id:"rebuild", value:"Rebuild from Dump (Data lost)" },
+                { $template:"Separator" },
+                { view:"button", id:"backup_db", value:"Make Database Dump", click: backup_db },
+                { $template:"Separator" },
+                { view:"button", id:"turn_into_dev", value: 'Apply Developer Settings (Password, Cronjobs)', click: turn_into_dev}
+            ]
+        },
+    ],
 }
 
 
@@ -371,22 +372,55 @@ webix.ui({
     type: 'wide',
     cols: [
         {
+            view: "sidemenu",
+            id: "sidemenu1",
+            width: 200,
+            position: "left",
+            body:{
+                view:"list",
+                borderless:true,
+                scroll: false,
+                template: "<span class='webix_icon fa-#icon#'></span> #value#",
+                data:[
+                    {id: 1, value: "Customers", icon: "user"},
+                    {id: 2, value: "Products", icon: "cube"},
+                    {id: 3, value: "Reports", icon: "line-chart"},
+                    {id: 4, value: "Archives", icon: "database"},
+                    {id: 5, value: "Settings", icon: "cog"}
+                ]
+            }
+        },
+        {
             rows: [
-                {
-                    view: "template",
-                    type: "header",
-                    css: "webix_dark",
-                    template: "CICD Feature Branches"
-                },
+                {view: "toolbar", id:"toolbar_header", elements:[
+                    {
+
+                        view: "icon", icon: "fas fa-bars",
+                        click: function(){
+                            debugger;
+                            if( $$("sidemenu1").config.hidden){
+                                $$("sidemenu1").show();
+                            }
+                            else
+                                $$("sidemenu1").hide();
+                        }
+                    },
+                    {
+                        view: "template",
+                        type: "header",
+                        css: "webix_dark",
+                        template: "CICD Feature Branches"
+                    },
+                ]},
                 {
                     view: 'toolbar',
                     css: "webix_dark",
                     id: 'site-toolbar-common',
                     elements: [
-                        { view:"button", id:"restart_delegator", value:"Restart Docker Delegator", click: clicked_menu},
-                        { view:"button", id:"start_all", value:"Start All Docker Containers", click: clicked_menu},
-                        { view:"button", id:"delete_unused", value:"Spring Clean", click: delete_unused},
-                        { view:"button", id:"users_admin", value:"Users", click: function() {
+                        { view:"button", id:"restart_delegator", value:"Restart Docker Delegator", click: clicked_menu, batch: 'admin'},
+                        { view:"button", id:"start_all", value:"Start All Docker Containers", click: clicked_menu, batch: 'admin'},
+                        { view:"button", id:"delete_unused", value:"Spring Clean", click: delete_unused, batch: 'admin'},
+                        { view:"button", id:"users_admin", value:"Users", batch: 'admin', click: function() {
                                 location = '/cicd/user_admin';
 
                             },
