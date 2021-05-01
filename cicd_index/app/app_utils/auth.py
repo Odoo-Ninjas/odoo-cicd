@@ -69,7 +69,15 @@ def login_post():
     
 @login_manager.unauthorized_handler
 def unauthorized_handler():
-    return login()
+    if os.getenv("PASSWD"):
+        return login()
+    else:
+        user = User()
+        user.id = 'admin'
+        user.authenticated = True
+        user.is_admin = True
+        flask_login.login_user(user)
+        return redirect("/cicd/index")
 
     
 @app.route("/user/is_admin")

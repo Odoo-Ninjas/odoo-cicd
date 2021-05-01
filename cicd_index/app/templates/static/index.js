@@ -1,7 +1,5 @@
 {% include "static/tools.js" %}
 
-webix.ajax().get('/cicd/start_info').then(function(startinfo) {
-    startinfo = startinfo.json();
 
 var update_live_values = null;
 
@@ -104,6 +102,7 @@ function build_log() {
 }
 
 function delete_unused() {
+    webix.message('Cleaning up intermediate docker images, unused networks/containers. Unused databases.');
     webix.ajax().get("/cicd/cleanup").then(function(res) {
         webix.message("Cleanup done", "info");
     }).fail(function(response) {
@@ -190,6 +189,7 @@ function turn_into_dev() {
 }
 
 function restart_delegator() {
+    webix.message("Restarting delegator", "info");
     var url = "/cicd/restart_delegator"
     webix.ajax().get(url).then(function(res) {
         webix.message("Restarted delegator", "info");
@@ -366,166 +366,167 @@ var menu = {
         },
     ],
 }
+webix.ajax().get('/cicd/start_info').then(function(startinfo) {
+    startinfo = startinfo.json();
 
-webix.ui(
-        {
-            view: "sidemenu",
-            id: "sidemenu1",
-            css: "webix_dark",
-            body:{
-                view:"list",
-                borderless:true,
-                scroll: false,
-                template: "<span style='margin-right: 10px;' class='webix_icon fas fa-#icon#'></span> #value#",
-                on:{
-                    onItemClick: clicked_menu,
-                },
-                data:[
-                    {id: 1, value: "Customers", icon: "user"},
-                    { view:"button", id:"restart_delegator", icon: 'recycle', value:"Restart Docker Delegator", click: clicked_menu, batch: 'admin'},
-                    { view:"button", id:"start_all", icon: 'play', value:"Start All Docker Containers", click: clicked_menu, batch: 'admin'},
-                    { view:"button", id:"delete_unused", icon: 'eraser', value:"Spring Clean", click: delete_unused, batch: 'admin'},
-                    { view:"button", id:"users_admin", value:"Users", icon: "users", batch: 'admin', click: function() {
-                            location = '/cicd/user_admin';
-
-                        },
+    webix.ui(
+            {
+                view: "sidemenu",
+                id: "sidemenu1",
+                css: "webix_dark",
+                body:{
+                    view:"list",
+                    borderless:true,
+                    scroll: false,
+                    template: "<span style='margin-right: 10px;' class='webix_icon fas fa-#icon#'></span> #value#",
+                    on:{
+                        onItemClick: clicked_menu,
                     },
-                    { view:"button", id:"logout", value:"Logout", icon: "sign-out-alt", batch: 'user', click: function() {
-                            location = '/cicd/logout';
+                    data:[
+                        { view:"button", id:"restart_delegator", icon: 'recycle', value:"Restart Delegator", batch: 'admin'},
+                        { view:"button", id:"start_all", icon: 'play', value:"Start All Docker Containers", batch: 'admin', click: clicked_menu,},
+                        { view:"button", id:"delete_unused", icon: 'eraser', value:"Spring Clean", batch: 'admin'},
+                        { view:"button", id:"users_admin", value:"Users", icon: "users", batch: 'admin', click: function() {
+                                location = '/cicd/user_admin';
 
+                            },
                         },
-                    }
+                        { view:"button", id:"logout", value:"Logout", icon: "sign-out-alt", batch: 'user', click: function() {
+                                location = '/cicd/logout';
 
-
-                ]
-            }
-        },
-);
-
-webix.ui({
-    type: 'wide',
-    cols: [
-        {
-            rows: [
-                {view: "toolbar", id:"toolbar_header", elements:[
-                    {
-
-                        view: "icon", icon: "fas fa-bars",
-                        click: function(){
-                            if( $$("sidemenu1").config.hidden){
-                                $$("sidemenu1").show(false, false);
-                            }
-                            else
-                                $$("sidemenu1").hide();
+                            },
                         }
-                    },
+
+
+                    ]
+                }
+            },
+    );
+
+    webix.ui({
+        type: 'wide',
+        cols: [
+            {
+                rows: [
+                    {view: "toolbar", id:"toolbar_header", elements:[
+                        {
+
+                            view: "icon", icon: "fas fa-bars",
+                            click: function(){
+                                if( $$("sidemenu1").config.hidden){
+                                    $$("sidemenu1").show(false, false);
+                                }
+                                else
+                                    $$("sidemenu1").hide();
+                            }
+                        },
+                        {
+                            view: "template",
+                            type: "header",
+                            css: "webix_dark",
+                            template: "CICD Feature Branches"
+                        },
+                    ]},
                     {
+                        id: "resources-view",
                         view: "template",
                         type: "header",
-                        css: "webix_dark",
-                        template: "CICD Feature Branches"
+                        template: "<div id='resources'></div>",
                     },
-                ]},
-                {
-                    id: "resources-view",
-                    view: "template",
-                    type: "header",
-                    template: "<div id='resources'></div>",
-                },
-                {
-                    view:"text", 
-                    placeholder:"Filter grid",
-                    on:{
-                        onTimedKeyPress:function(){
-                        var text = this.getValue().toLowerCase();
-                        var table = $$("table-sites");
-                        var columns = table.config.columns;
-                        table.filter(function(obj){
-                            for (var i=0; i<columns.length; i++) {
-                                if (obj[columns[i].id].toString().toLowerCase().indexOf(text) !== -1) return true;
-                                return false;
+                    {
+                        view:"text", 
+                        placeholder:"Filter grid",
+                        on:{
+                            onTimedKeyPress:function(){
+                            var text = this.getValue().toLowerCase();
+                            var table = $$("table-sites");
+                            var columns = table.config.columns;
+                            table.filter(function(obj){
+                                for (var i=0; i<columns.length; i++) {
+                                    if (obj[columns[i].id].toString().toLowerCase().indexOf(text) !== -1) return true;
+                                    return false;
+                                }
+                            })
                             }
-                        })
                         }
-                    }
-                },
-                {
-                    id: 'table-sites',
-                    view: "datatable",
-                    navigation: true,
-                    headerRowHeight: 60,
-                    rowHeight: 40,
-                    select: 'row',
-                    autoConfig: false,
-                    url: '/cicd/data/sites',
-                    editable: false,
-                    data: [],
-                    leftSplit: 0,
-                    scrollX: false,
-                    on: {
-                        onSelectChange:function(){
-                            if (!this.getSelectedItem()) {
-                                return;
+                    },
+                    {
+                        id: 'table-sites',
+                        view: "datatable",
+                        navigation: true,
+                        headerRowHeight: 60,
+                        rowHeight: 40,
+                        select: 'row',
+                        autoConfig: false,
+                        url: '/cicd/data/sites',
+                        editable: false,
+                        data: [],
+                        leftSplit: 0,
+                        scrollX: false,
+                        on: {
+                            onSelectChange:function(){
+                                if (!this.getSelectedItem()) {
+                                    return;
+                                }
+                                reload_details(this.getSelectedItem().name);
+                            },
+                            onItemClick: function(id, e, trg) {
+                                //if (id.column === 'start_instance') {
+                                //    var name = this.getSelectedItem().name;
+                                //    start_instance(name);
+                                //}
                             }
-                            reload_details(this.getSelectedItem().name);
                         },
-                        onItemClick: function(id, e, trg) {
-                            //if (id.column === 'start_instance') {
-                            //    var name = this.getSelectedItem().name;
-                            //    start_instance(name);
-                            //}
-                        }
+                        columns:[
+                            { id: 'name', header: 'Name', minWidth: 150},
+                            { id: 'title', header: 'Title', minWidth: 180},
+                            { id: 'success', header: 'Success', minWidth: 80},
+                            { id: 'is_building', header: 'Building', template: "{common.checkbox()}", disable: true},
+                            { id: 'docker_state', header: 'Docker', },
+                            { id: 'updated', header: 'Updated', minWidth: 150,},
+                            { id: 'duration', header: 'Duration [s]'},
+                            { id: 'delete', header: 'Delete', },
+                        ],
                     },
-                    columns:[
-                        { id: 'name', header: 'Name', minWidth: 150},
-                        { id: 'title', header: 'Title', minWidth: 180},
-                        { id: 'success', header: 'Success', minWidth: 80},
-                        { id: 'is_building', header: 'Building', template: "{common.checkbox()}", disable: true},
-                        { id: 'docker_state', header: 'Docker', },
-                        { id: 'updated', header: 'Updated', minWidth: 150,},
-                        { id: 'duration', header: 'Duration [s]'},
-                        { id: 'delete', header: 'Delete', },
+                ]
+            },
+            {
+            rows: [
+                {
+                    view: 'toolbar',
+                    css: "webix_dark",
+                    id: 'site-toolbar',
+                    hidden: true,
+                    elements: [
+                        menu,
+                        { view:"button", id:"build_log", value:"Build Log", width:150, align:"left", click: build_log, batch: 'admin' },
+                        { view:"button", id:"start", value:"Open UI", width:100, align:"right", click: start_instance, batch: 'user' },
+                        { view:"button", id:"start_mails", value:"Mails", width:100, align:"right", click: show_mails, batch: 'user' },
+                        { view:"button", id:"start_logging", value:"Live Log", width:100, align:"right", click: show_logs, batch: 'admin' },
+                        { view:"button", id:"start_shell", value:"Shell", width:100, align:"right", click: shell, batch: 'admin' },
+                        { view:"button", id:"start_debugging", value:"Debug", width:100, align:"right", click: debug, batch: 'admin' },
                     ],
                 },
+                {
+                    id: "webix-instance-details",
+                    maxWidth: 650,
+                    css: "webix_dark",
+                    view: "template",
+                    type: "body",
+                    template: "html->instance-template",
+                    hidden: true,
+                },
             ]
-        },
-        {
-        rows: [
-            {
-                view: 'toolbar',
-                css: "webix_dark",
-                id: 'site-toolbar',
-                hidden: true,
-                elements: [
-                    menu,
-                    { view:"button", id:"build_log", value:"Build Log", width:150, align:"left", click: build_log, batch: 'admin' },
-                    { view:"button", id:"start", value:"Open UI", width:100, align:"right", click: start_instance, batch: 'user' },
-                    { view:"button", id:"start_mails", value:"Mails", width:100, align:"right", click: show_mails, batch: 'user' },
-                    { view:"button", id:"start_logging", value:"Live Log", width:100, align:"right", click: show_logs, batch: 'admin' },
-                    { view:"button", id:"start_shell", value:"Shell", width:100, align:"right", click: shell, batch: 'admin' },
-                    { view:"button", id:"start_debugging", value:"Debug", width:100, align:"right", click: debug, batch: 'admin' },
-                ],
-            },
-            {
-                id: "webix-instance-details",
-                maxWidth: 650,
-                css: "webix_dark",
-                view: "template",
-                type: "body",
-                template: "html->instance-template",
-                hidden: true,
-            },
+            }
         ]
-        }
-    ]
-});
+    });
 
-webix.ui.fullScreen();
+    webix.ui.fullScreen();
 
-if (!startinfo.is_admin) {
-    $$("site-toolbar").showBatch('admin', false);
-    $$("site-toolbar-common").showBatch('admin', false);
-    $$("sidemenu1").showBatch('admin', false);
-}
+    if (!startinfo.is_admin) {
+        $$("site-toolbar").showBatch('admin', false);
+        $$("site-toolbar-common").showBatch('admin', false);
+        $$("sidemenu1").showBatch('admin', false);
+    }
 
 });
