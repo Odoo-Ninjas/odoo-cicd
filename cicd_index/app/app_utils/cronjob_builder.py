@@ -198,14 +198,16 @@ def _build():
             concurrent_threads = _get_config('concurrent_builds', 5)
 
             count_active = len([x for x in threads.values() if x.is_alive()])
+            logger.info(f"Active builds: {count_active}, configured max builds: {concurrent_threads}")
 
-            if count_active <= concurrent_threads:
-                sites = list(db.sites.find({'needs_build': True}))
-                for site in sites:
-                    if not threads.get(site['name']) or not threads[site['name']].is_alive():
+            sites = list(db.sites.find({'needs_build': True}))
+            for site in sites:
+                if not threads.get(site['name']) or not threads[site['name']].is_alive():
+                    if count_active < concurrent_threads:
                         thread = threading.Thread(target=build_instance, args=(site,))
                         threads[site['name']] = thread
                         thread.start()
+                        count_active += 1
 
         except Exception as ex:
             logger.error(ex)
