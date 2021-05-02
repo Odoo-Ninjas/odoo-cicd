@@ -4,6 +4,7 @@ import time
 import threading
 from .. import db
 from .tools import _odoo_framework
+from .tools import _get_config, _set_config
 import os
 import re
 import subprocess
@@ -70,7 +71,7 @@ DB_PORT={}
 
 def notify_instance_updated(site):
     repo = _get_repo(site['name'])
-    sha = str(repo.refs.HEAD.commit)
+    sha = str(repo.active_branch.commit)
     info = {
         'name': site['name'],
         'sha': sha,
@@ -86,6 +87,7 @@ def _last_success_full_sha(site):
 
 
 def make_instance(site, use_dump):
+    logger.info(f"Make instance for {site}")
     _make_instance_docker_configs(site)
 
     output = _odoo_framework(
@@ -192,13 +194,18 @@ def build_instance(site):
 def _build():
     while True:
         try:
+            # todo from db
+            concurrent_threads = _get_config('concurrent_builds', 5)
 
-            sites = list(db.sites.find({'needs_build': True}))
-            for site in sites:
-                if not threads.get(site['name']):
-                    thread = threading.Thread(target=build_instance, args=(site,))
-                    threads[site['name']] = thread
-                    thread.start()
+            count_active = len([x for x in threads.values() if x.is_alive()])
+
+            if count_active <= concurrent_threads:
+                sites = list(db.sites.find({'needs_build': True}))
+                for site in sites:
+                    if not threads.get(site['name']) or not threads[site['name']].is_alive():
+                        thread = threading.Thread(target=build_instance, args=(site,))
+                        threads[site['name']] = thread
+                        thread.start()
 
         except Exception as ex:
             logger.error(ex)

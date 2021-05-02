@@ -220,6 +220,48 @@ function rebuild() {
     show_reset_form(current_details);
 }
 
+function appsettings(){
+    webix.ajax().get('/cicd/data/app_settings', {}).then(function(data) {
+        data = data.json();
+        var form = webix.ui({
+            view: "window", 
+            position: 'center',
+            modal: true,
+            head: "Settings",
+            width: 550,
+            body: {
+                view: 'form',
+                complexData: true,
+                elements: [
+                    { view: 'text', name: 'concurrent_builds', label: "Concurrent Builds" },
+                    {
+                        cols:[
+                            { view:"button", value:"OK", css:"webix_primary", click: function() { 
+                                var values = this.getParentView().getFormView().getValues();
+                                webix.ajax().post('/cicd/data/app_settings', values).then(function(data) {
+                                    form.hide();
+                                    values = data.json();
+                                });
+                                }
+                            },
+                            { view:"button", value:"Cancel", click: function() {
+                                form.hide();
+                            }}
+                        ]
+                    }
+                ],
+                on: {
+                    'onSubmit': function() {
+                    },
+                }
+            }
+        });
+        form.getChildViews()[1].setValues(data);
+        form.show();
+    });
+    return false;
+}
+
 function settings(){
     webix.ajax().get('/cicd/data/sites', {'name': current_details}).then(function(data) {
         data = data.json();
@@ -387,6 +429,7 @@ webix.ajax().get('/cicd/start_info').then(function(startinfo) {
                         { view:"button", id:"start_all", icon: 'play', value:"Start All Docker Containers", batch: 'admin', click: clicked_menu,},
                         { view:"button", id:"delete_unused", icon: 'eraser', value:"Spring Clean", batch: 'admin'},
                         { view:"button", id:"users_admin", value:"Users", icon: "users", batch: 'admin' },
+                        { view:"button", id:"appsettings", value:"App Settings", icon: "cog", batch: 'admin' },
                         { view:"button", id:"logout", value:"Logout", icon: "sign-out-alt", batch: 'user'},
                     ]
                 }

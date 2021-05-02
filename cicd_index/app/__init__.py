@@ -76,5 +76,6 @@ else:
     from .app_utils import web_application
     from .app_utils import web_user_admin
     from .app_utils import web_instance_control
+    from .app_utils import web_app_settings
     from .app_utils.tools import JSONEncoder
     from . import app_utils

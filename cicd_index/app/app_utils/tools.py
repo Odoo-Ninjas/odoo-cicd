@@ -287,3 +287,12 @@ def get_output(sitename, ttype):
     if not rec:
         return ""
     return rec['log']
+
+def _get_config(name, default):
+    config = db.config.find_one({'name': name})
+    if config:
+        return config['value']
+    return default
+
+def _set_config(name, value):
+    db.config.update_one({'name': name}, {'$set': {'name': name, 'value': value}}, upsert=True)
