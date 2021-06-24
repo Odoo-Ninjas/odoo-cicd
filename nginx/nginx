@@ -1,6 +1,8 @@
 worker_processes 100;
  
 events { worker_connections 1024; }
+error_log stderr info;
+
  
 http {
 
@@ -8,6 +10,12 @@ http {
         server_name _;
         rewrite_log on;
         error_log    /dev/stdout debug;
+
+        #proxy_buffering off;
+        #proxy_store off;
+        proxy_max_temp_file_size 4096M;
+        
+
 
         location ~ ^/console/(.*)$ {
             rewrite ^/console/(.*)$ /$1 break;
@@ -41,14 +49,19 @@ http {
 
         location / {
             proxy_pass http://cicd_delegator:80;
-
+            client_max_body_size 100m;
             proxy_http_version 1.1;
+            proxy_temp_file_write_size 100M;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Real-PORT $remote_port;
-            proxy_read_timeout 1000s;
+            proxy_read_timeout 180;
+            proxy_send_timeout 180;
+            proxy_buffering off;
+
+
         }
 
 
