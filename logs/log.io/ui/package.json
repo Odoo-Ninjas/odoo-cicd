@@ -1,7 +1,7 @@
 {
   "name": "log.io-ui",
   "version": "0.4.16",
-  "homepage": "http://this_domain_is_irrelevant_just_the_relative_path_mastters/logs",
+  "homepage": "http://example.com/logs",
   "license": "Apache-2.0",
   "private": true,
   "dependencies": {

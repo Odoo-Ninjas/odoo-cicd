@@ -15,17 +15,6 @@
           "depth": 99
         }
       }
-    },
-    {
-      "source": "server1",
-      "stream": "cicd",
-      "config": {
-        "path": "/tmp/*",
-        "watcherOptions": {
-          "ignored": "*.txt",
-          "depth": 99
-        }
-      }
     }
   ]
 }
