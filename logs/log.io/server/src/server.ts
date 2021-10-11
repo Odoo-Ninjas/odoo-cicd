@@ -108,7 +108,7 @@ async function main(config: ServerConfig): Promise<void> {
   // Create HTTP server w/ static file serving, socket.io bindings & basic auth
   const server = express()
   const httpServer = new http.Server(server)
-  const io = socketio(httpServer, { resource: 'logs/socket.io' })
+  const io = socketio(httpServer)
   const inputs = new InputRegistry()
   if (config.basicAuth) {
     if (config.basicAuth.users && config.basicAuth.realm) {

@@ -9,9 +9,9 @@ RUN npm install -g typescript
 ADD log.io /usr/local/src/log.io
 #RUN python3 /usr/local/bin/add_homepage.py ../ui/package.json "https://example.com$LOGIO_RELATIVE_PATH"
 RUN ./bin/build-ui.sh && \
-npm run build:js && \
 npm install && \
 npm update && \ 
+npm run build:js && \
 npm set strict-ssl false && \
 npm install -g log.io-file-input
 

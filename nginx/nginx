@@ -23,8 +23,8 @@ http {
             proxy_read_timeout 1000s;
         }
 
-        location ~ ^/logs/(.*)$ {
-            rewrite ^/logs/(.*)$ /$1 break;
+        location ~ ^/logs/?(.*)$ {
+            rewrite ^/logs/?(.*)$ /$1 break;
 
             proxy_pass http://logs:6688;
 
