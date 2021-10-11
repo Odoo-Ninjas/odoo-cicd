@@ -1,8 +1,8 @@
 {
-  "name": "log.io",
+  "name": "log.io-file-input",
   "version": "0.4.16",
-  "description": "Listens for new messages over TCP and broadcasts to browsers via socket.io",
-  "homepage": "http://logio.org/logs",
+  "description": "Watches files on disk and sends new messages to the server",
+  "homepage": "http://logio.org",
   "repository": {
     "type": "git",
     "url": "https://github.com/NarrativeScience/log.io.git"
@@ -15,7 +15,7 @@
     "node.js",
     "ajax"
   ],
-  "author": "msmathers@narrativescience.com",
+  "author": "",
   "main": "lib/index.js",
   "scripts": {
     "type-check": "tsc --noEmit",
@@ -25,7 +25,7 @@
     "build:types": "tsc --emitDeclarationOnly",
     "build:js": "babel src --out-dir lib --extensions \".ts,.tsx\" --source-maps inline",
     "start": "node lib/index.js",
-    "prepare": "npm run build && ./bin/build-ui.sh"
+    "prepare": "npm run build"
   },
   "license": "Apache-2.0",
   "devDependencies": {
@@ -37,9 +37,7 @@
     "@babel/plugin-transform-runtime": "^7.8.3",
     "@babel/preset-env": "^7.8.7",
     "@babel/preset-typescript": "^7.8.3",
-    "@types/express": "^4.17.3",
     "@types/node": "^12.12.30",
-    "@types/socket.io": "^2.1.4",
     "@typescript-eslint/eslint-plugin": "^2.24.0",
     "@typescript-eslint/parser": "^2.24.0",
     "eslint": "^6.8.0",
@@ -48,12 +46,10 @@
     "typescript": "^3.8.3"
   },
   "bin": {
-    "log.io-server": "./bin/log.io-server"
+    "log.io-file-input": "./bin/log.io-file-input"
   },
   "dependencies": {
     "@babel/runtime": "^7.8.7",
-    "express": "^4.17.1",
-    "express-basic-auth": "^1.2.0",
-    "socket.io": "^2.3.0"
+    "chokidar": "^3.3.1"
   }
 }

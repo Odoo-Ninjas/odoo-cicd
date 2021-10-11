@@ -1,0 +1,31 @@
+{
+  "messageServer": {
+    "host": "127.0.0.1",
+    "port": 6689
+  },
+  "debug": true,
+  "inputs": [
+    {
+      "source": "rolling_logs",
+      "stream": "cicd",
+      "config": {
+        "path": "/rolling/*",
+        "watcherOptions": {
+          "ignored": "*.txt",
+          "depth": 99
+        }
+      }
+    },
+    {
+      "source": "server1",
+      "stream": "cicd",
+      "config": {
+        "path": "/tmp/*",
+        "watcherOptions": {
+          "ignored": "*.txt",
+          "depth": 99
+        }
+      }
+    }
+  ]
+}
