@@ -10,7 +10,7 @@ import { MessageEvent, PingEvent, RegistrationEvent } from './types'
  * Creates a new socket.io connection to the server
  */
 export const createSocket = (): SocketIOClient.Socket =>
-  socketIO("/logs", {"path": "/logs/socket.io"})
+  socketIO("http://odoodevelop1:9991/logs", {"path": "/logs/socket.io"})
 
 /**
  * Receives a new input event and adds it to relevant state
