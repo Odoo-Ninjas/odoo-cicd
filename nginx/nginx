@@ -9,8 +9,8 @@ http {
         rewrite_log on;
         error_log    /dev/stdout debug;
 
-        location ~ ^/console/(.*)$ {
-            rewrite ^/console/(.*)$ /$1 break;
+        location ~ ^/console/?(.*)$ {
+            rewrite ^/console/?(.*)$ /$1 break;
 
             proxy_pass http://webssh:8080;
 
