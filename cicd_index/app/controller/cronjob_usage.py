@@ -5,7 +5,6 @@ import time
 import threading
 from .. import db
 from .tools import _get_db_conn
-from .tools import _odoo_framework
 from .tools import _get_config, _set_config
 from .tools import _get_instance_config
 import os

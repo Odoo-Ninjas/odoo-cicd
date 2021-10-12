@@ -11,7 +11,7 @@ import os
 import base64
 import arrow
 from .tools import _get_host_path
-from .tools import _delete_sourcecode, get_output, write_rolling_log
+from .tools import _delete_sourcecode, get_output
 from .tools import _get_db_conn
 from pathlib import Path
 from flask import redirect
@@ -24,7 +24,6 @@ from flask import make_response
 from .tools import _format_dates_in_records
 from .tools import _get_resources
 from .. import db
-from .tools import _odoo_framework
 from .tools import _drop_db
 from .tools import _validate_input
 from .tools import _get_all_databases
@@ -35,31 +34,9 @@ import logging
 from datetime import datetime
 import docker as Docker
 from .tools import get_output
-from .tools import update_instance_folder
-from .. import rolling_log_dir
 import flask_login
 import shutil
 logger = logging.getLogger(__name__)
-
-@app.route("/logs/data")
-def histories():
-	files = rolling_log_dir.glob("*")
-	files2 = []
-
-	for file in sorted(files, key=lambda f: f.stat().st_mtime, reverse=True):
-		with open(file) as f:
-			first_line = f.readline()
-
-		title = first_line if first_line else 'n/a'
-		if title.startswith("___"):
-			title = title.split("___")[-1]
-		files2.append({
-			'name': file.name,
-			'title': title,
-			'date': arrow.get(file.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-		})
-
-	return jsonify(files2)
 
 @app.route('/logs')
 @login_required

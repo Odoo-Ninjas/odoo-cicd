@@ -1,6 +1,8 @@
 import logging
 import time
 import threading
+
+from .logsio_writer import LogsIOWriter
 from .. import db
 import docker as Docker
 import arrow
@@ -32,19 +34,20 @@ def _get_docker_states_background():
 
 def cycle_down_apps():
     while True:
-        try:
-            sites = db.sites.find({'name': 1, 'last_access': 1})
-            for site in sites:
+        sites = db.sites.find({'name': 1, 'last_access': 1})
+        for site in sites:
+            try:
+                logger = LogsIOWriter('misc', site['name'])
                 logger.debug(f"Checking site to cycle down: {site['name']}")
                 if (arrow.get() - arrow.get(site.get('last_access', '1980-04-04') or '1980-04-04')).total_seconds() > 2 * 3600: # TODO configurable
                     if _get_docker_state(site['name']) == 'running':
                         logger.debug(f"Cycling down instance due to inactivity: {site['name']}")
-                        _odoo_framework(site['name'], 'kill')
+                        _odoo_framework(site['name'], 'kill', logs_writer=logger)
 
-        except Exception as ex:
-            import traceback
-            msg = traceback.format_exc()
-            logger.error(msg)
+            except Exception as ex:
+                import traceback
+                msg = traceback.format_exc()
+                logger.error(msg)
         time.sleep(10)
 
 

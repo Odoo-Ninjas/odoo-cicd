@@ -14,7 +14,6 @@ import subprocess
 from pathlib import Path
 from .tools import _get_main_repo
 import os
-from .tools import update_instance_folder
 from . import BUILDING_LOCK
 from .tools import _get_config
 

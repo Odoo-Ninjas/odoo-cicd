@@ -75,10 +75,12 @@ services:
         logs
       args:
         LOGIO_RELATIVE_PATH: '/logs'
+    environment:
+      TIMEZONE: Europe/Berlin
+    expose:
+        - 6689
     networks:
-      - cicd_delegator
-    ports:
-      - "6688:6688"
+      - internal
     volumes:
       - rolling_log:/rolling
     privileged: true

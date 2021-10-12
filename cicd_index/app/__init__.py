@@ -13,9 +13,6 @@ from pathlib import Path
 
 
 
-rolling_log_dir = Path("/tmp") / 'rolling_log'
-rolling_log_dir.mkdir(exist_ok=True)
-
 login_manager = flask_login.LoginManager()
 
 

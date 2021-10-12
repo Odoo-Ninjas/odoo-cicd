@@ -14,10 +14,9 @@ from pathlib import Path
 from .tools import _get_main_repo
 import os
 import shutil
-from .tools import update_instance_folder
 from . import BUILDING_LOCK
 from .tools import _odoo_framework
-logger = logging.getLogger(__name__)
+from .logsio_writer import LogsIOWriter
 
 
 def _get_dump_name(site_name):
@@ -28,6 +27,10 @@ def _do_backups():
         try:
             sites = list(db.sites.find({'do_backup_regularly': True}))
             for site in sites:
+                logger = LogsIOWriter(
+                    'backup',
+                    site['name'],
+                )
                 if site.get('archive'):
                     continue
                 # check for existing dumpname
@@ -41,7 +44,11 @@ def _do_backups():
                 if age > 1:
                     logger.info(f"Starting backup of {site['name']}")
                     try:
-                        _odoo_framework(site, ['backup', 'odoo-db', str(Path(os.environ['DUMPS_PATH']) / dump_name)])
+                        _odoo_framework(
+                            site,
+                            ['backup', 'odoo-db', str(Path(os.environ['DUMPS_PATH']) / dump_name)],
+                            log_writer=logger
+                            )
                     except Exception as ex:
                         msg = traceback.format_exc()
                         logger.error(msg)
@@ -56,7 +63,6 @@ def _do_backups():
 
 
 def start():
-    logger.info("Starting job to backup instances")
     t = threading.Thread(target=_do_backups)
     t.daemon = True
     t.start()

@@ -26,7 +26,7 @@ from git import Repo
 from .tools import store_output, get_output
 from .tools import update_instance_folder
 from .tools import _get_instance_config
-from .. import rolling_log_dir
+from .logsio_writer import LogsIOWriter
 from . import BUILDING_LOCK
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,7 @@ def _reload_cmd(site_name):
         ]
 
 def make_instance(site, use_dump):
+    logger = LogsIOWriter('new_instance', site['name'])
     logger.info(f"Make instance for {site}")
     settings = _get_instance_config(site['name'])
     _make_instance_docker_configs(site)
@@ -135,14 +136,14 @@ def make_instance(site, use_dump):
     output = _odoo_framework(
         site['name'], 
         _reload_cmd(site['name']),
-        start_rolling_new=True
+        logs_writer=logger,
     )
     store_output(site['name'], 'reload', output)
 
     build_command = ["build"]
     if site.get('docker_no_cache'):
         build_command += ["--no-cache"]
-    output = _odoo_framework(site['name'], build_command)
+    output = _odoo_framework(site['name'], build_command, logs_writer=logger)
     store_output(site['name'], 'build', output)
 
     dump_date, dump_name = None, None
@@ -151,9 +152,9 @@ def make_instance(site, use_dump):
         flags = []
         if site.get('restore_no_dev_scripts'):
             flags += ['--no-dev-scripts']
-        _odoo_framework(site, ["restore", "odoo-db", use_dump] + flags)
+        _odoo_framework(site, ["restore", "odoo-db", use_dump] + flags, logs_writer=logger)
         logger.info(f"Restoring dump {site['name']} finished")
-        _odoo_framework(site, ["remove-web-assets"])
+        _odoo_framework(site, ["remove-web-assets"], logs_writer=logger)
         dump_file = Path("/opt/dumps") / use_dump
         dump_date = arrow.get(dump_file.stat().st_mtime).to('UTC').strftime("%Y-%m-%d %H:%M:%S")
         dump_name = use_dump
@@ -167,12 +168,12 @@ def make_instance(site, use_dump):
     else:
         logger.info(f"BUILD CONTROL: Resetting DB for {site['name']}")
         if settings['DBNAME']:
-            _odoo_framework(site, ["db", "reset", settings['DBNAME']])
+            _odoo_framework(site, ["db", "reset", settings['DBNAME']], logs_writer=logger)
 
     if not site.get('no_module_update'):
-        output = _odoo_framework(site, ["update"])
+        output = _odoo_framework(site, ["update"], logs_writer=logger)
     store_output(site['name'], 'update', output)
-    _odoo_framework(site, ["turn-into-dev"])
+    _odoo_framework(site, ["turn-into-dev"], logs_writer=logger)
     set_config_parameters(site)
 
 
@@ -184,11 +185,13 @@ def fix_ownership():
 
 def run_robot_tests(site, files):
     output, success, failed = [], [], []
+    logger = LogsIOWriter('robot', site['name'])
     for file in files:
         try:
             output.append(_odoo_framework(
                 site,
                 ["robot", str(file)],
+                logs_writer=logger,
             ))
             success.append(file)
         except Exception as ex:
@@ -197,8 +200,10 @@ def run_robot_tests(site, files):
     msg = []
     for failed in failed:
         msg.append(f"Failed: {failed}")
+        logger.info(msg[-1])
     for success in success:
         msg.append(f"OK: {success}")
+        logger.info(msg[-1])
 
     msg = '\n'.join(msg)
     output.append(msg)
@@ -211,18 +216,19 @@ def run_robot_tests(site, files):
     }, upsert=True
     )
 
-
     return '\n'.join(output)
 
 def set_config_parameters(site):
-    _odoo_framework(site, ["remove-settings", '--settings', 'web.base.url,web.base.url.freeze'])
-    _odoo_framework(site, ["update-setting", 'web.base.url', os.environ['CICD_URL']])
-    _odoo_framework(site, ["set-ribbon", site['name']])
-    _odoo_framework(site, ["prolong"])
+    logger = LogsIOWriter('misc', site['name'])
+    _odoo_framework(site, ["remove-settings", '--settings', 'web.base.url,web.base.url.freeze'], logs_writer=logger)
+    _odoo_framework(site, ["update-setting", 'web.base.url', os.environ['CICD_URL']], logs_writer=logger)
+    _odoo_framework(site, ["set-ribbon", site['name']], logs_writer=logger)
+    _odoo_framework(site, ["prolong"], logs_writer=logger)
 
 
 def build_instance(site):
     try:
+        logger = LogsIOWriter('build', site)
         logger.info(f"Building instance {site['name']}")
         fix_ownership()
         started = arrow.get()
@@ -243,16 +249,16 @@ def build_instance(site):
                 )
                 logger.info(f"Downing {site['name']}")
                 try:
-                    _odoo_framework(site, ["down"])
+                    _odoo_framework(site, ["down"], logs_writer=logger)
                 except Exception as ex:
                     logger.warn(ex)
 
                 logger.info(f"Building {site['name']}")
-                _odoo_framework(site, ["build"])
+                _odoo_framework(site, ["build"], logs_writer=logger)
                 logger.info(f"Upping {site['name']}")
-                _odoo_framework(site, ["up", "-d"])
+                _odoo_framework(site, ["up", "-d"], logs_writer=logger)
                 logger.info(f"Upped {site['name']}")
-                _odoo_framework(site, ["prolong"])
+                _odoo_framework(site, ["prolong"], logs_writer=logger)
 
             elif site.get("build_mode") == 'update-all-modules':
 
@@ -260,31 +266,35 @@ def build_instance(site):
                     if site.get('odoo_settings_update_modules_before'):
                         output = _odoo_framework(
                             site,
-                            ["update", "--no-dangling-check", site['odoo_settings_update_modules_before']]
+                            ["update", "--no-dangling-check", site['odoo_settings_update_modules_before']],
+                            logs_writer=logger
                         )
 
-                _odoo_framework(site, ["remove-web-assets"])
+                _odoo_framework(site, ["remove-web-assets"], logs_writer=logger)
                 if not site.get('no_module_update'):
                     output = _odoo_framework(
                         site,
-                        ["update", "--no-dangling-check"] + ([] if noi18n else ["--i18n"])
+                        ["update", "--no-dangling-check"] + ([] if noi18n else ["--i18n"]),
+                        logs_writer=logger
                     )
                     store_output(site['name'], 'update', output)
                 set_config_parameters(site)
-                _odoo_framework(site, ["up", "-d"])
+                _odoo_framework(site, ["up", "-d"], logs_writer=logger)
 
             elif site.get("build_mode") == 'update-recent':
                 if not site.get('no_module_update'):
                     if site.get('odoo_settings_update_modules_before'):
                         output = _odoo_framework(
                             site,
-                            ["update", "--no-dangling-check", site['odoo_settings_update_modules_before']]
+                            ["update", "--no-dangling-check", site['odoo_settings_update_modules_before']],
+                            logs_writer=logger,
                         )
                 last_sha = _last_success_full_sha(site)
 
                 files = [Path(x) for x in _odoo_framework(
                     site,
-                    ["list-changed-files", "-s", last_sha]
+                    ["list-changed-files", "-s", last_sha],
+                    logs_writer=logger,
                 ).split("---")[1].split("\n") if x]
 
                 suffixes = set(x.suffix for x in files if x)
@@ -297,19 +307,24 @@ def build_instance(site):
                     if not site.get('no_module_update'):
                         output += _odoo_framework(
                             site,
-                            ["update", "--no-dangling-check", "--since-git-sha", last_sha] + ([] if noi18n else ["--i18n"])
+                            ["update", "--no-dangling-check", "--since-git-sha", last_sha] + ([] if noi18n else ["--i18n"]),
+                            logs_writer=logger,
                         )
                         store_output(site['name'], 'update', output)
-                        _odoo_framework(site, ["up", "-d"])
+                        _odoo_framework(site, ["up", "-d"], logs_writer=logger)
                 output = run_robot_tests(site, [x for x in files if x.suffix == '.robot'])
                 if output:
                     store_output(site['name'], 'robot-tests', output)
 
             elif site.get("build_mode") == 'reset':
                 if settings['DBNAME']:
-                    _odoo_framework(site, ['db', 'reset', settings['DBNAME'], '--do-not-install-base'])
+                    _odoo_framework(
+                        site,
+                        ['db', 'reset', settings['DBNAME'], '--do-not-install-base'],
+                        logs_writer=logger,
+                        )
                 make_instance(site, dump_name)
-                _odoo_framework(site, ["up", "-d"])
+                _odoo_framework(site, ["up", "-d"], logs_writer=logger)
 
             else:
                 raise NotImplementedError(site.get('build_mode'))
@@ -369,9 +384,8 @@ def _build():
                         for key in ['reload', 'name', 'update', 'build', 'last_error']:
                             store_output(site['name'], key, "")
 
-                        rolling_file = rolling_log_dir / site['name']
-                        if rolling_file.exists():
-                            rolling_file.write_text(f"_____ _____Started new build: {arrow.get()}")
+                        rolling_file = LogsIOWriter('build', site['name'])
+                        rolling_file.write_text(f"Started new build: {arrow.get()}")
 
                         try:
                             rolling_file.write_text(f"Cloning from git...")

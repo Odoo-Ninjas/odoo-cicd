@@ -21,7 +21,7 @@ import logging
 import os
 from .. import host_ip
 from git import Repo
-from .. import rolling_log_dir
+from .logsio_writer import LogsIOWriter
 from .. import MAIN_FOLDER_NAME
 
 PREFIX_PREPARE_DUMP = "prepare_dump_"
@@ -84,22 +84,17 @@ def _validate_input(data, int_fields=[]):
         data['_id'] = ObjectId(data['_id'])
     return data
 
-def write_rolling_log(file, line, prefix=''):
-    with open(str(file), 'a') as fh:
-        fh.write(f"{prefix}_____{arrow.get()}_____{line}\n")
-        fh.flush()
-
-def _odoo_framework(site_name, command, start_rolling_new=False, rolling_file_name=None, instance_folder=None):
+def _odoo_framework(site_name, command, logs_writer, instance_folder=None):
     logger.info(f"Executing command: {site_name} {command}")
     if isinstance(site_name, dict):
         site_name = site_name['name']
     if isinstance(command, str):
         command = [command]
 
-    file = rolling_log_dir / (rolling_file_name or site_name)
-    if start_rolling_new:
-        file.write_text("")
-    write_rolling_log(file, ((" ".join(map(str, command))) + "\n"))
+    if not logs_writer:
+        logs_writer = LogsIOWriter('framework', site_name)
+
+    logs_writer.write_text(((" ".join(map(str, command))) + "\n"))
 
     if instance_folder:
         if not instance_folder.exists():
@@ -112,7 +107,7 @@ def _odoo_framework(site_name, command, start_rolling_new=False, rolling_file_na
 
     def on_input(prefix, line):
         if line:
-            write_rolling_log(file, line, prefix=prefix)
+            logs_writer.write_text(prefix + line)
 
     res, stdout, stderr = _execute_shell(
         ["/opt/odoo/odoo", "-f", "--project-name", site_name] + command,
@@ -128,7 +123,7 @@ def _odoo_framework(site_name, command, start_rolling_new=False, rolling_file_na
     output = stdout + '\n' + stderr
     if res == 'error':
         store_output(site_name, 'last_error', output)
-        write_rolling_log(file, stderr)
+        logs_writer.write_text(stderr)
         raise OdooFrameworkException(output)
 
     store_output(site_name, 'last_error', '')
@@ -397,7 +392,7 @@ def _get_main_repo(tempfolder=False, destination_folder=False):
             
     return repo
 
-def update_instance_folder(branch, rolling_file, instance_folder=None):
+def update_instance_folder(branch, logs_writer, instance_folder=None):
     from . import GIT_LOCK
     from . import URL
     from . import WORKSPACE
@@ -407,15 +402,15 @@ def update_instance_folder(branch, rolling_file, instance_folder=None):
         while tries < 3:
             try:
                 tries += 1
-                write_rolling_log(rolling_file, f"Updating instance folder {branch}")
+                logs_writer.write_text(f"Updating instance folder {branch}")
                 _store(branch, {'is_building': True})
-                write_rolling_log(rolling_file, f"Cloning {branch} {URL} to {instance_folder}")
+                logs_writer.write_text(f"Cloning {branch} {URL} to {instance_folder}")
                 repo = clone_repo(URL, instance_folder)
-                write_rolling_log(rolling_file, f"Checking out {branch}")
+                logs_writer.write_text(f"Checking out {branch}")
                 repo.git.checkout(branch, force=True)
-                write_rolling_log(rolling_file, f"Pulling {branch}")
+                logs_writer.write_text(f"Pulling {branch}")
                 repo.git.pull()
-                write_rolling_log(rolling_file, f"Clean git")
+                logs_writer.write_text(f"Clean git")
                 run = subprocess.run(
                     ["git", "clean", "-xdff"],
                     capture_output=True,
@@ -431,19 +426,19 @@ def update_instance_folder(branch, rolling_file, instance_folder=None):
                     )
                 if run.returncode:
                     msg = run.stdout.decode('utf-8') + "\n" + run.stderr.decode('utf-8')
-                    write_rolling_log(rolling_file, msg)
+                    logs_writer.write_text(rolling_file, msg)
                     raise Exception(msg)
                 commit = repo.refs[branch].commit
                 user_id = get_sshuser_id()
-                write_rolling_log(rolling_file, f"Setting access rights in {instance_folder} to {user_id}")
+                logs_writer.write_text(f"Setting access rights in {instance_folder} to {user_id}")
                 subprocess.check_call(["/usr/bin/chown", f"{user_id}:{user_id}", "-R", str(instance_folder)])
                 return str(commit)
 
             except Exception as ex:
                 if tries < 3:
-                    rolling_file.write_text(str(ex))
+                    logs_writer.write_text(str(ex))
                     logger.warn(ex)
-                    rolling_file.write_text(f"Retrying update instance folder for {branch}")
+                    logs_writer.write_text(f"Retrying update instance folder for {branch}")
                     if instance_folder.exists():
                         shutil.rmtree(instance_folder)
                 else:
