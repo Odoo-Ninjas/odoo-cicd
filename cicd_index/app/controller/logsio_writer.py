@@ -6,12 +6,15 @@ logger = logging.getLogger(__name__)
 
 class LogsIOWriter(object):
     def __init__(self, stream, source, host='logs', port=6689):
+        if isinstance(stream, dict):
+            stream = stream['name']
+        stream = stream.replace("|", "_")
+        source = source.replace("|", "_")
         self.stream = stream
-        if isinstance(source, dict):
-            source = source['name']
         self.source = source
         try:
             host = socket.gethostbyname_ex(host)
+            host = host[-1][0]
         except Exception as ex:
             logger.error(ex)
             logger.error(f"Could not resolve {host}")

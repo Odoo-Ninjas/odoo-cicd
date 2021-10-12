@@ -246,6 +246,7 @@ def build_instance(site):
                 logger.info(f"Reloading {site['name']}")
                 _odoo_framework(site, 
                     _reload_cmd(site['name']),
+                    logs_writer=logger,
                 )
                 logger.info(f"Downing {site['name']}")
                 try:

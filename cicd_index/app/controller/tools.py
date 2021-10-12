@@ -471,3 +471,10 @@ def _get_host_path(path):
     inspect = json.loads(subprocess.check_output(['docker', 'inspect', container.id]))
     source = [x for x in inspect[0]['Mounts'] if x['Destination'] == str(path)][0]['Source']
     return Path(source)
+
+def get_logs_url(site_name, sources=[]):
+    nr = 1
+    arr = []
+    for source in sources or ['misc', 'build', 'robot']:
+        arr.append (f"{site_name}|{source}")
+    return f"/logs#{{\"{nr}\": {arr}}}"

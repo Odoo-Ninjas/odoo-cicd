@@ -5,6 +5,7 @@ import traceback
 import subprocess
 from functools import partial
 from .tools import _get_src_path
+from .tools import get_logs_url
 import threading
 import tempfile
 import humanize
@@ -166,8 +167,10 @@ DB_PWD=odoo
     t = threading.Thread(target=do)
     t.start()
 
+    
+
     return jsonify({
-        'live_url': "/cicd/live_log?name=" + rolling_file.name
+        'live_url': get_logs_url([rolling_file.source]),
     })
 
 @app.route("/turn_into_dev")
@@ -792,10 +795,8 @@ def make_custom_instance():
 @app.route("/live_log")
 def livelog():
     name = request.args['name']
-    return render_template(
-        'live_log.html',
-        site=name,
-    )
+    get_logs_url(name)
+    return redirect(get_logs_url(name))
 
 @app.route("/run_robot_tests")
 def run_robot_tests():
