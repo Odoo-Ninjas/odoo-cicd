@@ -124,7 +124,7 @@ def _reload_cmd(site_name):
         ]
 
 def make_instance(site, use_dump):
-    logger = LogsIOWriter('new_instance', site['name'])
+    logger = LogsIOWriter(site['name'], 'build')
     logger.info(f"Make instance for {site}")
     settings = _get_instance_config(site['name'])
     _make_instance_docker_configs(site)
@@ -185,7 +185,7 @@ def fix_ownership():
 
 def run_robot_tests(site, files):
     output, success, failed = [], [], []
-    logger = LogsIOWriter('robot', site['name'])
+    logger = LogsIOWriter(site['name'], 'robot')
     for file in files:
         try:
             output.append(_odoo_framework(
@@ -219,7 +219,7 @@ def run_robot_tests(site, files):
     return '\n'.join(output)
 
 def set_config_parameters(site):
-    logger = LogsIOWriter('misc', site['name'])
+    logger = LogsIOWriter(site['name'], 'misc')
     _odoo_framework(site, ["remove-settings", '--settings', 'web.base.url,web.base.url.freeze'], logs_writer=logger)
     _odoo_framework(site, ["update-setting", 'web.base.url', os.environ['CICD_URL']], logs_writer=logger)
     _odoo_framework(site, ["set-ribbon", site['name']], logs_writer=logger)
@@ -228,7 +228,7 @@ def set_config_parameters(site):
 
 def build_instance(site):
     try:
-        logger = LogsIOWriter('build', site)
+        logger = LogsIOWriter(site, 'build')
         logger.info(f"Building instance {site['name']}")
         fix_ownership()
         started = arrow.get()
@@ -384,7 +384,7 @@ def _build():
                         for key in ['reload', 'name', 'update', 'build', 'last_error']:
                             store_output(site['name'], key, "")
 
-                        rolling_file = LogsIOWriter('build', site['name'])
+                        rolling_file = LogsIOWriter(site['name'], 'build')
                         rolling_file.write_text(f"Started new build: {arrow.get()}")
 
                         try:

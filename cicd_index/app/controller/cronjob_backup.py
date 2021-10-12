@@ -28,8 +28,8 @@ def _do_backups():
             sites = list(db.sites.find({'do_backup_regularly': True}))
             for site in sites:
                 logger = LogsIOWriter(
-                    'backup',
                     site['name'],
+                    'backup',
                 )
                 if site.get('archive'):
                     continue

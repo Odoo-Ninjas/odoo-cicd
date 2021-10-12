@@ -92,7 +92,7 @@ def _odoo_framework(site_name, command, logs_writer, instance_folder=None):
         command = [command]
 
     if not logs_writer:
-        logs_writer = LogsIOWriter('framework', site_name)
+        logs_writer = LogsIOWriter(site_name, 'misc')
 
     logs_writer.write_text(((" ".join(map(str, command))) + "\n"))
 

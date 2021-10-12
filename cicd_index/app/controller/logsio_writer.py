@@ -7,9 +7,19 @@ logger = logging.getLogger(__name__)
 class LogsIOWriter(object):
     def __init__(self, stream, source, host='logs', port=6689):
         self.stream = stream
+        if isinstance(source, dict):
+            source = source['name']
         self.source = source
-        self.host = host
-        self.port = port
+        try:
+            host = socket.gethostbyname_ex(host)
+        except Exception as ex:
+            logger.error(ex)
+            logger.error(f"Could not resolve {host}")
+            self.host = None
+            self.port = None
+        else:
+            self.host = host
+            self.port = port
         self.tz = os.getenv("TIMEZONE", 'utc')
         self._send(f"+input|{self.stream}|{self.source}")
 
@@ -22,8 +32,10 @@ class LogsIOWriter(object):
             socket.send(f"{txt}\0".encode())
 
     def _get_socket(self):
+        if not self.host:
+            raise Exception(f"Host missing")
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        serversocket.bind((self.host, self.port))
+        serversocket.connect((self.host, self.port))
         return serversocket
 
     def _format(self, level, txt):
@@ -32,7 +44,7 @@ class LogsIOWriter(object):
         return txt
 
     def _write_text(self, msg):
-        self._send(f"+msg|{self.stream}|{self.source}|msg")
+        self._send(f"+msg|{self.stream}|{self.source}|{msg.replace('|', '_')}")
 
     def write_text(self, msg):
         self.info(msg)

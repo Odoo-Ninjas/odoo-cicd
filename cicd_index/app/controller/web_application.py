@@ -177,7 +177,7 @@ def _turn_into_dev():
     site = db.sites.find_one({'name': request.args.get('site')})
     if site:
         site = site['name']
-        logger = LogsIOWriter('misc', site)
+        logger = LogsIOWriter(site, 'misc')
         _reload_instance(site, logs_writer=logger)
         _odoo_framework(site, ["turn-into-dev"], logs_writer=logger)
     return jsonify({'result': 'ok'})
@@ -406,7 +406,7 @@ def pgcli():
 @app.route("/debug_instance")
 def debug_instance():
     site_name = request.args.get('name')
-    logger = LogsIOWriter('misc', site_name)
+    logger = LogsIOWriter(site_name, 'misc')
 
     _odoo_framework(site_name, ['kill', 'odoo'], logs_writer=logger)
     _odoo_framework(site_name, ['kill', 'odoo_debug'], logs_writer=logger)
@@ -562,7 +562,7 @@ def build_log():
 def backup_db():
     site = db.sites.find_one({'name': request.args.get('name')})
     dump_name = request.args.get('dumpname')
-    logger = LogsIOWriter('misc', site['name'])
+    logger = LogsIOWriter(site['name'], 'misc')
     _odoo_framework(site, ['backup', 'odoo-db', dump_name], logs_writer=logger)
     return jsonify({
         'result': 'ok',
@@ -713,7 +713,7 @@ def start_info():
 def clear_db():
     from .web_instance_control import _restart_docker
     site = db.sites.find_one({'name': request.args['name']})
-    logger = LogsIOWriter('misc', site['name'])
+    logger = LogsIOWriter(site['name'], 'misc')
     _odoo_framework(site, ['cleardb'], logs_writer=logger)
     _restart_docker(site['name'], kill_before=False)
 
@@ -800,7 +800,7 @@ def livelog():
 @app.route("/run_robot_tests")
 def run_robot_tests():
     site = request.args.get('site')
-    logs_writer = LogsIOWriter('robot-tests', f"{site}")
+    logs_writer = LogsIOWriter(site, 'robot')
     def _run():
         _odoo_framework(site, ['robot', '-a'], logs_writer=logs_writer)
     threading.Thread(target=_run).start()
