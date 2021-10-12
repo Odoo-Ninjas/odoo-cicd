@@ -4,10 +4,9 @@ RUN apt update && apt install -y build-essential python2
 WORKDIR /usr/local/src/log.io/server
 # in the application there is a PUBLIC_URL which is replaced by the relative part
 # of the homepage section *facepalm*; the host doesnt matter
-# https://stackoverflow.com/questions/12696125/sed-edit-file-in-place
+# ../ui/package.json "https://example.com$LOGIO_RELATIVE_PATH"
 RUN npm install -g typescript
 ADD log.io /usr/local/src/log.io
-#RUN python3 /usr/local/bin/add_homepage.py ../ui/package.json "https://example.com$LOGIO_RELATIVE_PATH"
 RUN ./bin/build-ui.sh && \
 npm install && \
 npm update && \ 
