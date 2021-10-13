@@ -264,6 +264,7 @@ def data_variants():
         site['repo_url'] = f"{os.environ['REPO_URL']}/-/commit/{site.get('git_sha')}"
         site['build_state'] = _get_build_state(site)
         site['duration'] = site.get('duration', 0)
+        site['last_access'] = arrow.get(site['last_access']).to(os.environ['DISPLAY_TIMEZONE']).strftime("%Y-%m-%d %H:%M:%S")
 
     if user.is_authenticated and not user.is_admin:
         user_db = db.users.find_one({'login': user.id})

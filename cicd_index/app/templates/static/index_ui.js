@@ -192,6 +192,7 @@ webix.ready(function() {
                                 { id: 'copy_to_clipboard', header: '',  template: "html->clipboard-icon" }, 
                                 //{ id: 'live_log', header: '',  template: "html->live_log-icon" }, 
                                 { id: 'name', header: 'Name', minWidth: 150},
+                                { id: 'last_access', header: "Last Access", minWidth: 200},
                                 //{ id: 'title', header: 'Title', minWidth: 180},
                                 { id: 'build_state', header: 'Build', disable: true, minWidth: 80, readonly: true},
                                 // { id: 'docker_state', header: 'Docker', },
