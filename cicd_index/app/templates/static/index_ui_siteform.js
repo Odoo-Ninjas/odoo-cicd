@@ -95,11 +95,9 @@
                     body: {
                         rows: [
                             { cols: [
-                                { view: "label", label: "Note"}, 
-                                { view: 'textarea', height: 150, name: 'note', },
+                                { view: 'textarea', height: 120, name: 'note', },
                             ]},
                             { cols: [
-                                { view: "label", label: "Description"}, 
                                 { view: 'textarea', name: 'git_desc', readonly: true, height: 300},
                             ]},
                         ]
