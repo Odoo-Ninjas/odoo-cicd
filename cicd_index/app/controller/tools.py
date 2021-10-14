@@ -477,4 +477,5 @@ def get_logs_url(site_name, sources=[]):
     arr = []
     for source in sources or ['misc', 'build', 'robot']:
         arr.append (f"{site_name}|{source}")
+    arr = str(arr).replace("'", '"')
     return f"/logs#{{\"{nr}\": {arr}}}"
