@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-import traceback
+from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as DTF
 import arrow
 from odoo import _, api, fields, models, SUPERUSER_ID
 from odoo.exceptions import UserError, RedirectWarning, ValidationError
@@ -20,14 +20,13 @@ class Release(models.Model):
     repo_short = fields.Char(related="repo_id.short")
     branch_id = fields.Many2one(
         'cicd.git.branch', string="Branch", required=True)
-    candidate_branch = fields.Char(
-        string="Candidate", required=True, default="master_candidate")
     item_ids = fields.One2many(
         'cicd.release.item', 'release_id', string="Release")
     auto_release = fields.Boolean("Auto Release")
     sequence_id = fields.Many2one(
         'ir.sequence', string="Version Sequence", required=True)
     countdown_minutes = fields.Integer("Countdown Minutes")
+    minutes_to_release = fields.Integer("Max Minutes for release.", default=120)
     last_item_id = fields.Many2one(
         'cicd.release.item', compute="_compute_last")
     state = fields.Selection(related='item_ids.state')
@@ -35,6 +34,13 @@ class Release(models.Model):
         'cicd.release.action', 'release_id', string="Release Actions")
     send_pre_release_information = fields.Boolean(
         "Send Pre-Release Information")
+    stop_collecting_at = fields.Datetime(compute="_compute_stop_collecting_at")
+
+    def _compute_stop_collecting_at(self):
+        for rec in self:
+            rec.stop_collecting_at = arrow.get(
+                rec.next_date).shift(
+                    minutes=-1 * rec.countdown_minutes).strftime(DTF)
 
     @api.constrains("project_name")
     def _check_project_name(self):
@@ -83,15 +89,6 @@ class Release(models.Model):
         else:
             items = items[0]
         return items
-
-    def _technically_do_release(self, release_item, merge_commit_id):
-        """
-        merge_commit_id: after merging the main branch with the candidate branch
-        a new commit is created.
-        """
-
-        errors = self.action_ids.run_action_set(release_item, self.action_ids, merge_commit_id)
-        return errors
 
     def _send_pre_release_information(self):
         for rec in self:

@@ -27,6 +27,7 @@
 						</group>
 						<group string="Continuous Deployment">
 							<field name="countdown_minutes"/>
+							<field name="minutes_to_release"/>
 							<field name="auto_release"/>
 							<field name="hour" />
 							<field name="minute" />

@@ -25,6 +25,9 @@ class InvalidBranchName(Exception):
 class NewBranch(Exception):
     pass
 
+class MergeConflict(Exception):
+    def __init__(self, conflicts):
+        self.conflicts = conflicts
 
 class Repository(models.Model):
     _inherit ['mixin.schedule']
@@ -531,6 +534,7 @@ class Repository(models.Model):
                     self._technical_clone_repo(path, machine=machine)
 
     def _merge_commits_on_target(self, shell, target, commits):
+        conflicts = []
         for commit in commits:
             # we use git functions to retrieve deltas, git sorting and
             # so; we want to rely on stand behaviour git.
@@ -540,19 +544,19 @@ class Repository(models.Model):
                 shell.X(["git", "merge", commit.name])
                 history.append(commit.name)
             except Exception as ex:
-                text = (
-                    "Merge-Conflict - "
-                    "try to merge the branches togehter."
-                )
-                raise UserError(text) from ex
+                conflicts.append(commit)
+        return conflicts
 
     def _recreate_branch_from_commits(
-        self, commits, target_branch_name, logsio, make_info_commit_msg
+        self, source_branch, commits,
+        target_branch_name, logsio, make_info_commit_msg,
     ):
         """
-        Iterate all branches and get the latest commit that fall into
-        the countdown criteria.  param make_info_commit_msg": if set, then an
-        empty commit with just a message is made
+        Creates a new branch with given commit ids based on source.
+        Deletes existing target_branch_name.
+
+        If merge conflicts exist, then all not mergable commits are returned.
+
         """
         if not commits:
             return
@@ -571,17 +575,18 @@ class Repository(models.Model):
             ) as shell:
 
                 # clear the current candidate
+                shell.checkout_branch(source_branch)
                 if shell.branch_exists(target_branch_name):
-                    shell.checkout_branch(self.default_branch)
                     shell.X(["git", "branch", "-D", target_branch_name])
                 logsio.info("Making target branch {target_branch.name}")
-                shell.checkout_branch(self.default_branch)
                 shell.X([
                     "git", "checkout", "--no-guess",
                     "-b", target_branch_name])
 
-                self._merge_commits_on_target(
+                conflicts = self._merge_commits_on_target(
                     shell, target_branch_name, commits)
+                if conflicts:
+                    raise MergeConflict(conflicts)
 
                 # pushes to mainrepo locally not to web because its
                 # cloned to temp directory
@@ -594,6 +599,7 @@ class Repository(models.Model):
                         make_info_commit_msg])
                     message_commit_sha = shell.X([
                         "git", "log", "-n1", "--format=%H"])['stdout'].strip()
+
                 shell.X([
                     "git", "push", "--set-upstream", "-f", 'origin',
                     target_branch_name])
