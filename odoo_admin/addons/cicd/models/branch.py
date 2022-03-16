@@ -324,7 +324,6 @@ class GitBranch(models.Model):
                     or not rec.any_testing
                     or commit.force_approved
                     ) and commit.approval_state == 'approved':
-                breakpoint()
 
                 release_items = rec.computed_release_item_ids.mapped(
                     'release_id.next_to_finish_item_id')
