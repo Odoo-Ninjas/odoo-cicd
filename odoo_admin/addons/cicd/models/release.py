@@ -113,9 +113,14 @@ class Release(models.Model):
 
         for rec in self.search([]):
             last_item = rec.last_item_id
-            if last_item.state in ['ready', 'done'] or \
+            if last_item.state in [False, 'ready', 'done'] or \
                     'failed_' in last_item.state:
-                rec.item_ids = [[0, 0, {}]]
+                planned_date = self._compute_next_date(
+                    last_item.planned_maximum_finish_date
+                )
+                rec.item_ids = [[0, 0, {
+                    'planned_date': planned_date.strftime(DTF),
+                }]]
 
             last_item.cron_heartbeat()
 

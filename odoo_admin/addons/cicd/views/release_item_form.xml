@@ -15,10 +15,13 @@
 						<group>
 							<field name="release_id" readonly="1" />
 							<field name="name" readonly="1" />
-							<field name="planned_date" />
-							<field name="final_curtain" />
 							<field name="release_type" readonly="1" />
 							<field name="computed_summary" />
+						</group>
+						<group string="Deadlines">
+							<field name="stop_collecting_at" />
+							<field name="planned_date" />
+							<field name="planned_maximum_finish_date" />
 						</group>
 						<group string="Merge Information">
 							<field name="commit_id" readonly="1"/>

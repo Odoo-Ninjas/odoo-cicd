@@ -37,7 +37,6 @@ class ReleaseItem(models.Model):
     stop_collecting_at = fields.Datetime(compute="_compute_dates")
     done_date = fields.Datetime("Done", tracking=True)
     changed_lines = fields.Integer("Changed Lines", tracking=True)
-    final_curtain = fields.Datetime("Final Curtains", tracking=True)
     log_release = fields.Text("Log", readonly=True)
     state = fields.Selection([
         ("collecting", "Collecting"),
@@ -95,7 +94,7 @@ class ReleaseItem(models.Model):
             collecting_states = ['collecting', 'collecting_merge_conflict']
             if rec.state in collecting_states:
                 if rec.release_id.item_ids.filtered(
-                    lambda x: x.release_type == 'standard' and 
+                    lambda x: x.release_type == 'standard' and
                         x.id != rec.id and x.state in collecting_states):
 
                     raise ValidationError(
