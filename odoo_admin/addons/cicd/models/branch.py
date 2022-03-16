@@ -415,6 +415,7 @@ class GitBranch(models.Model):
 
     def _get_instance_folder(self, machine):
         if not self.project_name:
+            breakpoint()
             raise ValidationError("Project name not determined.")
         return machine._get_volume('source') / self.project_name
 

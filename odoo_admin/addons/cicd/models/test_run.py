@@ -100,6 +100,7 @@ class CicdTestRun(models.Model):
             raise AbortException("User aborted")
 
     def _prepare_run(self, shell, report, logsio, started):
+        breakpoint()
         self._abort_if_required()
         report('building')
         shell.odoo('build')
