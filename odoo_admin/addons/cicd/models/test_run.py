@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 class AbortException(Exception):
     pass
 
+class WrongShaException(Exception):
+    pass
 
 class CicdTestRun(models.Model):
     _inherit = ['mail.thread', 'cicd.open.window.mixin']
@@ -205,16 +207,26 @@ ODOO_DEMO=1
         with machine._shell(
                 cwd=root / project_name, logsio=logsio, project_name=project_name
         ) as shell:
-            report("Checking out source code...")
-            self._reload(shell, logsio, settings, report, started, root)
+            try:
+                report("Checking out source code...")
+                self._reload(shell, logsio, settings, report, started, root)
+                report("Reloaded")
 
-            sha = shell.X(["git", "log", "-n1", "--format=%H"])[
-                'stdout'].strip()
-            if sha != self.commit_id.name:
-                raise Exception((
-                    f"checked-out SHA {sha} "
-                    f"not matching test sha {self.commit_id.name}"
-                    ))
+                sha = shell.X(["git", "log", "-n1", "--format=%H"])[
+                    'stdout'].strip()
+                if sha != self.commit_id.name:
+                    raise WrongShaException((
+                        f"checked-out SHA {sha} "
+                        f"not matching test sha {self.commit_id.name}"
+                        ))
+            except WrongShaException:
+                pass
+
+            except Exception as ex:
+                report(f"Error at reloading the instance / getting source")
+                report(str(ex))
+                logger.error(ex)
+                raise
 
             report(f"Checked out source code at {shell.cwd}")
             try:
