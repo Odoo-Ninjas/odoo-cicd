@@ -269,6 +269,7 @@ class ReleaseItem(models.Model):
             ), ignore_retry=True, seconds=15) from ex
 
     def cron_heartbeat(self):
+        breakpoint()
         self.ensure_one()
         self._lock()
         now = fields.Datetime.now()
@@ -321,6 +322,7 @@ class ReleaseItem(models.Model):
                     self.state = 'ready'
 
         elif self.state == 'ready':
+            breakpoint()
             if now > deadline:
                 self.state = 'failed_too_late'
             elif now > self.planned_date:

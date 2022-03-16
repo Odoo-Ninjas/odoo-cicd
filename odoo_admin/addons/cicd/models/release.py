@@ -122,7 +122,12 @@ class Release(models.Model):
                     'planned_date': planned_date,
                 }]]
 
-            last_item.cron_heartbeat()
+            for item in self.env['cicd.release.item'].search([
+                ('state', 'not ilike', 'failed_'),
+                ('state', '!=', 'done'),
+                ('release_id', '=', rec.id),
+            ]):
+                item.cron_heartbeat()
 
     def make_hotfix(self):
         existing = self.item_ids.with_context(prefetch_fields=False).filtered(
