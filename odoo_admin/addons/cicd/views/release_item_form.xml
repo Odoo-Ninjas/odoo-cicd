@@ -6,7 +6,7 @@
 			<field name="arch" type="xml">
 				<form string="">
 					<header>
-						<field name="state" widget="statusbar" attrs="{'readonly': True}" />
+						<field name="state" widget="statusbar" attrs="{'readonly': True}" statusbar_visible="collecting,integrating,ready,done" />
 					</header>
 					<sheet>
 						<div class="oe_button_box" name="button_box">

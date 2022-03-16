@@ -288,7 +288,7 @@ class ReleaseItem(models.Model):
             if self.needs_merge:
                 self.merge()
 
-            if self.release_id.stop_collecting_at < fields.Datetime.now():
+            if self.stop_collecting_at < now:
                 if not self.branch_ids:
                     self.state = 'done'
                 else:
