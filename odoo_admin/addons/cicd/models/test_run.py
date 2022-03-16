@@ -239,7 +239,6 @@ ODOO_DEMO=1
             try:
                 report("Checking out source code...")
                 self._reload(shell, logsio, settings, report, started, root)
-                raise Exception('stop1')
                 report("Reloaded")
 
                 sha = shell.X(["git", "log", "-n1", "--format=%H"])[
@@ -375,11 +374,18 @@ ODOO_DEMO=1
                         self._compute_success_rate()
                         self._inform_developer()
                         self.env.cr.commit()
-                except Exception:
+                except Exception as ex:
                     try:
                         self.env.cr.commit()
                     except Exception:
                         pass
+
+                    logger.error(str(ex))
+                    try:
+                        logsio.error(str(ex))
+                    except Exception:
+                        pass
+
                     with db_registry.cursor() as cr:
                         env = api.Environment(cr, SUPERUSER_ID, {})
                         testrun = env[self._name].browse(self.id)
