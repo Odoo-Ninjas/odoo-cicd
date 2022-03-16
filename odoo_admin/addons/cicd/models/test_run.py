@@ -1,14 +1,14 @@
+import arrow
 from contextlib import contextmanager
 import base64
 import datetime
 from . import pg_advisory_lock
-from odoo.addons.queue_job.exception import RetryableJobError
 from collections import deque
 import traceback
 import time
-import arrow
 from odoo import _, api, fields, models, SUPERUSER_ID, registry
-from odoo.exceptions import UserError, RedirectWarning, ValidationError
+from odoo.addons.queue_job.exception import RetryableJobError
+from odoo.exceptions import ValidationError
 import logging
 from pathlib import Path
 
@@ -20,8 +20,10 @@ logger = logging.getLogger(__name__)
 class AbortException(Exception):
     pass
 
+
 class WrongShaException(Exception):
     pass
+
 
 class CicdTestRun(models.Model):
     _inherit = ['mail.thread', 'cicd.open.window.mixin']
@@ -31,13 +33,15 @@ class CicdTestRun(models.Model):
     name = fields.Char(compute="_compute_name")
     do_abort = fields.Boolean("Abort when possible")
     date = fields.Datetime(
-        "Date Started", default=lambda self: fields.Datetime.now(), required=True,
-        tracking=True)
+        "Date Started", default=lambda self: fields.Datetime.now(),
+        required=True, tracking=True)
     commit_id = fields.Many2one("cicd.git.commit", "Commit", required=True)
     commit_id_short = fields.Char(related="commit_id.short", store=True)
-    branch_id = fields.Many2one('cicd.git.branch', string="Initiating branch", required=True)
+    branch_id = fields.Many2one(
+        'cicd.git.branch', string="Initiating branch", required=True)
     branch_id_name = fields.Char(related='branch_id.name', store=False)
-    branch_ids = fields.Many2many('cicd.git.branch', related="commit_id.branch_ids", string="Branches")
+    branch_ids = fields.Many2many(
+        'cicd.git.branch', related="commit_id.branch_ids", string="Branches")
     repo_short = fields.Char(related="branch_ids.repo_id.short")
     state = fields.Selection([
         ('open', 'Ready To Test'),
@@ -61,7 +65,12 @@ class CicdTestRun(models.Model):
 
         while True:
             try:
-                shell.odoo("psql", "--non-interactive", "--sql", "select * from information_schema.tables limit 1;", timeout=timeout)
+                shell.odoo(
+                    "psql",
+                    "--non-interactive",
+                    "--sql",
+                    "select * from information_schema.tables limit 1;",
+                    timeout=timeout)
             except Exception:
                 diff = arrow.get() - started
                 msg = f"Waiting for postgres {diff.total_seconds()}..."
@@ -76,24 +85,37 @@ class CicdTestRun(models.Model):
     def _reload(self, shell, logsio, settings, report, started, root):
         def reload():
             self.branch_id._reload(
-                shell, None, logsio, project_name=shell.project_name, settings=settings,
-                commit=self.commit_id.name)
+                shell, None, logsio, project_name=shell.project_name,
+                settings=settings, commit=self.commit_id.name)
         try:
-            reload()
-        except RetryableJobError:
-            raise
-        except Exception as ex:
             try:
-                if shell.cwd != root:
-                    shell.rm(shell.cwd)
                 reload()
             except RetryableJobError:
                 raise
             except Exception as ex:
-                if 'reference is not a tree' in str(ex):
-                    raise RetryableJobError("Missing commit not arrived - retrying later.") from ex
-                report("Error occurred", exception=ex, duration=arrow.get() - started)
-                raise
+                report(str(ex))
+                try:
+                    if shell.cwd != root:
+                        shell.rm(shell.cwd)
+                    reload()
+                except RetryableJobError:
+                    raise
+                except Exception as ex:
+                    if 'reference is not a tree' in str(ex):
+                        raise RetryableJobError((
+                            "Missing commit not arrived "
+                            "- retrying later.")) from ex
+                    report(
+                        "Error occurred", exception=ex,
+                        duration=arrow.get() - started)
+                    raise
+        except RetryableJobError as ex:
+            report("Retrying", exception=ex)
+            raise
+
+        except Exception as ex:
+            report("Error", exception=ex)
+            raise
 
     def _abort_if_required(self):
         self.env.cr.commit()
@@ -170,11 +192,14 @@ DB_PWD=odoo
 ODOO_DEMO=1
         """
 
-        def report(msg, state='success', exception=None, duration=None, ttype='log'):
+        def report(
+            msg, state='success', exception=None, duration=None, ttype='log'
+        ):
             if not hasattr(report, 'last_report_time'):
                 report.last_report_time = arrow.get()
             if duration is None:
-                duration = (arrow.get() - report.last_report_time).total_seconds()
+                duration = (arrow.get() - report.last_report_time)\
+                    .total_seconds()
             elif isinstance(duration, datetime.timedelta):
                 duration = duration.total_seconds()
             ttype = ttype or 'log'
@@ -205,7 +230,8 @@ ODOO_DEMO=1
         project_name = self.branch_id.project_name
         assert project_name
         with machine._shell(
-                cwd=root / project_name, logsio=logsio, project_name=project_name
+            cwd=root / project_name, logsio=logsio,
+            project_name=project_name
         ) as shell:
             try:
                 report("Checking out source code...")
@@ -255,14 +281,21 @@ ODOO_DEMO=1
     # env['cicd.test.run'].with_context(DEBUG_TESTRUN=True, FORCE_TEST_RUN=True).browse(nr).execute()
     def execute(self, shell=None, task=None, logsio=None):
         breakpoint()
-        with self.branch_id._get_new_logsio_instance('test-run-execute') as logsio2:
+        with self.branch_id._get_new_logsio_instance(
+                'test-run-execute') as logsio2:
             if not logsio:
                 logsio = logsio2
             testrun_context = f"_testrun_{self.id}"
-            self = self.with_context(testrun=testrun_context) # after logsio, so that logs io projectname is unchanged
-            with pg_advisory_lock(self.env.cr, f"testrun.{self.id}", detailinfo="execute test"):
+
+            # after logsio, so that logs io projectname is unchanged
+            self = self.with_context(testrun=testrun_context)
+            with pg_advisory_lock(
+                self.env.cr,
+                f"testrun.{self.id}", detailinfo="execute test"
+            ):
                 try:
-                    if self.state not in ('open') and not self.env.context.get("FORCE_TEST_RUN"):
+                    if self.state not in ('open') and not self.env.context.get(
+                            "FORCE_TEST_RUN"):
                         return
                     db_registry = registry(self.env.cr.dbname)
                     with db_registry.cursor() as cr:
@@ -305,15 +338,18 @@ ODOO_DEMO=1
                         with self.prepare_run(machine, logsio) as shell:
                             if b.run_unittests:
                                 self._execute(
-                                    shell, logsio, self._run_unit_tests, machine, 'test-units')
+                                    shell, logsio, self._run_unit_tests,
+                                    machine, 'test-units')
                                 self.env.cr.commit()
                             if b.run_robottests:
                                 self._execute(
-                                    shell, logsio, self._run_robot_tests, machine, 'test-robot')
+                                    shell, logsio, self._run_robot_tests,
+                                    machine, 'test-robot')
                                 self.env.cr.commit()
                             if b.simulate_install_id:
                                 self._execute(
-                                    shell, logsio, self._run_update_db, machine, 'test-migration')
+                                    shell, logsio, self._run_update_db,
+                                    machine, 'test-migration')
                                 self.env.cr.commit()
 
                         if data['technical_errors']:
@@ -326,7 +362,8 @@ ODOO_DEMO=1
                                     'ttype': 'log',
                                     'state': 'failed',
                                 })
-                            raise Exception('\n\n\n'.join(map(str, data['technical_errors'])))
+                            raise Exception('\n\n\n'.join(map(
+                                str, data['technical_errors'])))
 
                         self.duration = (arrow.get() - started).total_seconds()
                         if logsio:
@@ -386,16 +423,20 @@ ODOO_DEMO=1
 
     def _compute_success_rate(self):
         for rec in self:
-            lines = rec.mapped('line_ids').filtered(lambda x: x.ttype != 'log')
-            success_lines = len(lines.filtered(lambda x: x.state == 'success' or x.force_success))
-            if lines and all(x.state == 'success' or x.force_success for x in lines):
+            lines = rec.mapped('line_ids').filtered(
+                lambda x: x.ttype != 'log')
+            success_lines = len(lines.filtered(
+                lambda x: x.state == 'success' or x.force_success))
+            if lines and all(
+                    x.state == 'success' or x.force_success for x in lines):
                 rec.state = 'success'
             else:
                 rec.state = 'failed'
             if not lines or not success_lines:
                 rec.success_rate = 0
             else:
-                rec.success_rate = int(100 / float(len(lines)) * float(success_lines))
+                rec.success_rate = \
+                    int(100 / float(len(lines)) * float(success_lines))
             rec.branch_id._compute_state()
 
     @api.constrains('branch_ids')
@@ -403,8 +444,11 @@ ODOO_DEMO=1
         for rec in self:
             if not rec.branch_ids:
                 continue
-            if not all(x.repo_id == rec.branch_ids[0].repo_id for x in rec.branch_ids):
-                raise ValidationError("Branches must be of the same repository.")
+            if not all(
+                x.repo_id == rec.branch_ids[0].repo_id for x in rec.branch_ids
+            ):
+                raise ValidationError(
+                    "Branches must be of the same repository.")
 
     def _compute_name(self):
         for rec in self:
@@ -421,7 +465,8 @@ ODOO_DEMO=1
 
     def rerun(self):
         if self.branch_id.state not in ['testable', 'tested', 'dev']:
-            raise ValidationError(_("State of branch does not allow a repeated test run"))
+            raise ValidationError(
+                _("State of branch does not allow a repeated test run"))
         self = self.sudo()
         self.state = 'open' # regular cronjob makes task for that
         self.success_rate = 0
@@ -538,8 +583,10 @@ ODOO_DEMO=1
                 tests_by_module[module].append(fpath)
         return tests_by_module
 
-    def _generic_run(self, shell, logsio, todo, ttype, execute_run,
-            try_count=1, name_prefix=''):
+    def _generic_run(
+        self, shell, logsio, todo, ttype, execute_run,
+        try_count=1, name_prefix=''
+    ):
         """
         Timeout in seconds.
 
@@ -633,7 +680,8 @@ class CicdTestRunLine(models.Model):
         ('failed', 'Failed'),
     ], default='open', required=True)
     force_success = fields.Boolean("Force Success")
-    started = fields.Datetime("Started", default=lambda self: fields.Datetime.now())
+    started = fields.Datetime(
+        "Started", default=lambda self: fields.Datetime.now())
     try_count = fields.Integer("Try Count")
     robot_output = fields.Binary("Robot Output", attachment=True)
 
