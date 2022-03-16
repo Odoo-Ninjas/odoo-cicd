@@ -208,10 +208,13 @@ ODOO_DEMO=1
             report("Checking out source code...")
             self._reload(shell, logsio, settings, report, started, root)
 
-            sha = shell.X(["git", "log", "-n1", "--format=%H"])['stdout'].strip()
+            sha = shell.X(["git", "log", "-n1", "--format=%H"])[
+                'stdout'].strip()
             if sha != self.commit_id.name:
-                raise Exception(
-                    f"checkoued SHA {sha} not matching test sha {self.commit_id.name}")
+                raise Exception((
+                    f"checked-out SHA {sha} "
+                    f"not matching test sha {self.commit_id.name}"
+                    ))
 
             report(f"Checked out source code at {shell.cwd}")
             try:
