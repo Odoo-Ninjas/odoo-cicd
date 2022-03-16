@@ -154,7 +154,7 @@ class ReleaseItem(models.Model):
             ('branch_id.repo_id', '=', self.repo_id.id)
             ])
         ignored_branch_names = []
-        ignored_branch_names += list(all_releases.mapped('candidate_branch'))
+        ignored_branch_names += list(all_releases.mapped('item_ids.item_branch_name'))
         ignored_branch_names += list(all_releases.mapped('branch_id.name'))
         return ignored_branch_names
 
@@ -327,7 +327,7 @@ class ReleaseItem(models.Model):
             if not candidate_branch.active:
                 raise UserError((
                     "Candidate branch "
-                    f"'{self.release_id.candidate_branch}'"
+                    f"'{self.item_branch_id.name}'"
                     "is not active!"))
 
             tag = (

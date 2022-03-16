@@ -26,7 +26,8 @@ class Release(models.Model):
     sequence_id = fields.Many2one(
         'ir.sequence', string="Version Sequence", required=True)
     countdown_minutes = fields.Integer("Countdown Minutes")
-    minutes_to_release = fields.Integer("Max Minutes for release.", default=120)
+    minutes_to_release = fields.Integer(
+        "Max Minutes for release.", default=120)
     last_item_id = fields.Many2one(
         'cicd.release.item', compute="_compute_last")
     next_to_finish_item_id = fields.Many2one(
@@ -74,13 +75,11 @@ class Release(models.Model):
                 if len(items) > 1:
                     if items[1].state == 'ready':
                         rec.next_to_finish_item_id = items[1]
-                    
 
-    @api.constrains("candidate_branch", "branch_id")
+    @api.constrains("branch_id")
     def _check_branches(self):
         for rec in self:
             for field in [
-                'candidate_branch',
                 'branch_id',
             ]:
                 if not self[field]:
@@ -88,9 +87,11 @@ class Release(models.Model):
                 if self.search_count([
                     ('id', '!=', rec.id),
                     ('repo_id', '=', rec.repo_id.id),
-                    (field, '=', rec[field] if isinstance(rec[field], (bool, str)) else rec[field].id),
+                    (field, '=', rec[field] if isinstance(rec[field], (
+                        bool, str)) else rec[field].id),
                 ]):
-                    raise ValidationError("Branches must be unique per release!")
+                    raise ValidationError(
+                        "Branches must be unique per release!")
 
     @contextmanager
     def _get_logsio(self):
@@ -98,7 +99,9 @@ class Release(models.Model):
             yield logsio
 
     def _ensure_item(self):
-        items = self.with_context(prefetch_fields=False).item_ids.sorted(lambda x: x.id, reverse=True).filtered(lambda x: x. release_type == 'standard')
+        items = self.with_context(prefetch_fields=False).item_ids.sorted(
+            lambda x: x.id, reverse=True).filtered(
+                lambda x: x. release_type == 'standard')
         if not items or items[0].state in ['done', 'failed']:
             items = self.item_ids.create({
                 'release_id': self.id,
@@ -124,9 +127,13 @@ class Release(models.Model):
             last_item.cron_heartbeat()
 
     def make_hotfix(self):
-        existing = self.item_ids.with_context(prefetch_fields=False).filtered(lambda x: x.release_type == 'hotfix' and x.state not in ['done', 'failed'])
+        existing = self.item_ids.with_context(prefetch_fields=False).filtered(
+            lambda x: x.release_type == 'hotfix' and x.state not in [
+                'done', 'failed'])
         if existing:
-            raise ValidationError("Hotfix already exists. Please finish it before")
+            raise ValidationError((
+                "Hotfix already exists. "
+                "Please finish it before"))
         self.item_ids = [[0, 0, {
             'release_type': 'hotfix',
         }]]
