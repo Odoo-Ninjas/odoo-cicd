@@ -10,3 +10,7 @@ def migrate(cr, version):
         "set state = 'failed_technically' "
         "where state = 'failed'"
     ))
+    cr.execute((
+        "delete from ir_cron "
+        "where name ilike '%scheduled release%'"
+    ))
