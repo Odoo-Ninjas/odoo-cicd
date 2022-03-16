@@ -87,6 +87,7 @@ class CicdTestRun(models.Model):
             self.branch_id._reload(
                 shell, None, logsio, project_name=shell.project_name,
                 settings=settings, commit=self.commit_id.name)
+        logsio.info("Reloading for test run")
         try:
             try:
                 reload()
@@ -110,10 +111,12 @@ class CicdTestRun(models.Model):
                         duration=arrow.get() - started)
                     raise
         except RetryableJobError as ex:
+            logsio.error(str(ex))
             report("Retrying", exception=ex)
             raise
 
         except Exception as ex:
+            logsio.error(str(ex))
             report("Error", exception=ex)
             raise
 
@@ -236,6 +239,7 @@ ODOO_DEMO=1
             try:
                 report("Checking out source code...")
                 self._reload(shell, logsio, settings, report, started, root)
+                raise Exception('stop1')
                 report("Reloaded")
 
                 sha = shell.X(["git", "log", "-n1", "--format=%H"])[
@@ -249,7 +253,7 @@ ODOO_DEMO=1
                 pass
 
             except Exception as ex:
-                report(f"Error at reloading the instance / getting source")
+                report("Error at reloading the instance / getting source")
                 report(str(ex))
                 logger.error(ex)
                 raise

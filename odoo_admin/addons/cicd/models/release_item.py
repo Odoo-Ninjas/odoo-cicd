@@ -269,7 +269,7 @@ class ReleaseItem(models.Model):
                     self.state = 'failed_too_late'
                     return
 
-        if self.state == 'collecting':
+        if self.state == ['collecting', 'collecting_merge_conflict']:
             self._collect()
             if self.needs_merge or not self.item_branch_id:
                 self.merge()
@@ -285,9 +285,6 @@ class ReleaseItem(models.Model):
                         self.state = 'failed_merge'
                     else:
                         self.state = 'integrating'
-
-        elif self.state == 'collecting_merge_conflict':
-            pass
 
         elif self.state == 'integrating':
             # check if test done
@@ -310,10 +307,7 @@ class ReleaseItem(models.Model):
                     self.state = 'ready'
 
         elif self.state == 'ready':
-            breakpoint()
-            if now > deadline:
-                self.state = 'failed_too_late'
-            elif now > self.planned_date:
+            if now > self.planned_date:
                 self._do_release()
 
         elif self.state == 'done':
