@@ -271,6 +271,7 @@ class GitBranch(models.Model):
         "release_branch_ids.state",
         "release_branch_ids",
         "any_testing",
+        "block_release",
     )
     def _compute_state(self):
         for rec in self:
@@ -296,7 +297,7 @@ class GitBranch(models.Model):
             elif commit.approval_state == 'approved' and \
                 commit.test_state in [False, 'open', 'running'] and \
                     rec.any_testing and not commit.force_approved:
-                
+
                 state = 'testable'
 
             elif commit.test_state == 'failed' or \
@@ -332,28 +333,6 @@ class GitBranch(models.Model):
                 rec.with_delay(
                     identity_key=f"report_ticket_system branch:{rec.name}:"
                 )._report_new_state_to_ticketsystem()
-
-    @api.fieldchange('state', 'block_release')
-    def _onchange_state_event(self, changeset):
-        for rec in self:
-
-            def _update():
-                self.env['cicd.release.item'].search([
-                    ('state', 'in', ['new']),
-                    ('release_id.repo_id', '=', rec.repo_id.id)
-                ])._collect_tested_branches(self.repo_id)
-
-            if 'block_release' in changeset:
-                rec._compute_state()
-                _update()
-                continue
-
-            if 'state' in changeset:
-                old_state = changeset['state']['old']
-                new_state = changeset['state']['new']
-                if new_state == 'tested' or old_state == 'tested':
-                    _update()
-                    continue
 
     @api.depends("name", "ticket_system_ref")
     def _compute_ticket_system_url(self):

@@ -117,7 +117,7 @@ class ReleaseItem(models.Model):
         breakpoint()
         try:
             with self.release_id._get_logsio() as logsio:
-                merge_commit_id = self.item_branch_id.last_commit_id
+                merge_commit_id = self.item_branch_id.latest_commit_id
                 errors = self.release_id.action_ids.run_action_set(
                     self, self.release_id.action_ids, merge_commit_id)
                 if errors:
@@ -205,7 +205,6 @@ class ReleaseItem(models.Model):
             else:
                 if message_commit and commits:
                     message_commit.approval_state = 'approved'
-                    self.commit_ids = [[6, 0, commits.ids]]
                     self.commit_id = message_commit
                     candidate_branch = repo.branch_ids.filtered(
                         lambda x: x.name == self.item_branch_name)
@@ -222,9 +221,9 @@ class ReleaseItem(models.Model):
     def _on_change_branches(self, changeset):
         for rec in self:
             branches = (
-                changeset['branch_ids']['old'] 
+                changeset['branch_ids']['old']
                 | changeset['branch_ids']['new'])
-            branches._compute_state()
+            branches.mapped('branch_id')._compute_state()
 
     def abort(self):
         for rec in self:
@@ -274,7 +273,7 @@ class ReleaseItem(models.Model):
 
         elif self.state == 'integrating':
             # check if test done
-            runs = self.item_branch_id.last_commit_id.test_run_ids
+            runs = self.item_branch_id.latest_commit_id.test_run_ids
             open_runs = runs.filtered(
                 lambda x: x.state not in ['failed', 'success'])
             success = 'success' in runs.mapped('state')
@@ -305,13 +304,13 @@ class ReleaseItem(models.Model):
 
         elif 'failed_' in self.state:
             pass
-            
+
         else:
             raise NotImplementedError()
 
     def _merge_on_master(self):
         """
-        Merges 
+        Merges
         """
         breakpoint()
         logsio = None
@@ -349,7 +348,6 @@ class ReleaseItem(models.Model):
             branches = self.env['cicd.git.branch'].search([
                 ('repo_id', '=', rec.repo_id.id),
                 ('block_release', '=', False),
-                ('active', '=', True),
                 ('name', 'not in', ignored_branch_names),
                 ('state', 'in', ['tested', 'candidate']),
             ])
@@ -357,8 +355,8 @@ class ReleaseItem(models.Model):
             def _keep_undeployed_commits(branch):
                 done_items = self.release_id.item_ids.filtered(
                     lambda x: x.state == 'done')
-                done_commits = done_items.mapped('branch_ids.commit_ids')
-                return branch.last_commit_id not in done_commits
+                done_commits = done_items.mapped('branch_ids.commit_id')
+                return branch.latest_commit_id not in done_commits
 
             branches = branches.filtered(_keep_undeployed_commits)
 
@@ -371,8 +369,8 @@ class ReleaseItem(models.Model):
                     }]]
                     rec.needs_merge = True
 
-                elif existing.commit_id != branch.last_commit_id:
-                    existing.commit_id = branch.last_commit_id
+                elif existing.commit_id != branch.latest_commit_id:
+                    existing.commit_id = branch.latest_commit_id
                     rec.needs_merge = True
 
             for existing in rec.branch_ids:
@@ -384,6 +382,6 @@ class ReleaseItem(models.Model):
         for rec in self:
             rec.item_branch_name = (
                 "release_"
-                f"{rec.relase_id.branch_id.name}_"
+                f"{rec.release_id.branch_id.name}_"
                 f"{rec.id}"
             )
