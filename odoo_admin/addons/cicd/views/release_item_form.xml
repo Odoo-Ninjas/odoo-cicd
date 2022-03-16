@@ -11,7 +11,6 @@
 					<sheet>
 						<div class="oe_button_box" name="button_box">
 							<button type="object" class="oe_stat_button" icon="fa-recycle" name="retry" string="Retry" states='failed' />
-							<button type="object" class="oe_stat_button" icon="fa-check" name="reschedule" string="Reschedule" states="ignore"/>
 						</div>
 						<group>
 							<field name="release_id" readonly="1" />
@@ -33,9 +32,9 @@
 							<page string="Branches" name="branches">
 								<field name="branch_ids" attrs="{'readonly': [('release_type', '!=', 'hotfix')]}">
 									<tree>
-										<field name="name"/>
+										<field name="branch_id"/>
+										<field name="commit_id"/>
 										<field name="state"/>
-										<field name="enduser_summary"/>
 									</tree>
 								</field>
 							</page>

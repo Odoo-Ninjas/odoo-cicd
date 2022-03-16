@@ -24,9 +24,14 @@ class ReleaseItem(models.Model):
     branch_ids = fields.One2many(
         'cicd.release.item.branch', 'item_id', tracking=True)
     item_branch_name = fields.Char(compute="_compute_item_branch_name")
-    item_branch_id = fields.Many2one('cicd.git.branch', string="Release Branch")
-    release_id = fields.Many2one('cicd.release', string="Release", required=True, ondelete="cascade")
-    planned_date = fields.Datetime("Planned Deploy Date", default=lambda self: fields.Datetime.now(), tracking=True)
+    item_branch_id = fields.Many2one(
+        'cicd.git.branch', string="Release Branch")
+    release_id = fields.Many2one(
+        'cicd.release', string="Release",
+        required=True, ondelete="cascade")
+    planned_date = fields.Datetime(
+        "Planned Deploy Date",
+        default=lambda self: fields.Datetime.now(), tracking=True)
     done_date = fields.Datetime("Done", tracking=True)
     changed_lines = fields.Integer("Changed Lines", tracking=True)
     final_curtain = fields.Datetime("Final Curtains", tracking=True)
@@ -44,9 +49,17 @@ class ReleaseItem(models.Model):
         ('ready', 'Ready'),
         ('done', 'Done'),
     ], string="State", default='collecting', required=True, tracking=True)
-    computed_summary = fields.Text("Computed Summary", compute="_compute_summary", tracking=True)
-    count_failed_queuejobs = fields.Integer("Failed Jobs", compute="_compute_failed_jobs")
-    commit_id = fields.Many2one('cicd.git.commit', string="Released commit", help="After merging all tested commits this is the commit that holds all merged commits.")
+    computed_summary = fields.Text(
+        "Computed Summary",
+        compute="_compute_summary", tracking=True)
+    count_failed_queuejobs = fields.Integer(
+        "Failed Jobs", compute="_compute_failed_jobs")
+    commit_id = fields.Many2one(
+        'cicd.git.commit',
+        string="Released commit",
+        help=(
+            "After merging all tested commits this is the "
+            "commit that holds all merged commits."))
     needs_merge = fields.Boolean()
     exc_info = fields.Text("Exception Info")
 
@@ -64,7 +77,8 @@ class ReleaseItem(models.Model):
                     lambda x: x.release_type == 'standard' and 
                         x.id != rec.id and x.state in collecting_states):
 
-                    raise ValidationError(_("There may only be one collecting standard item!"))
+                    raise ValidationError(
+                        _("There may only be one collecting standard item!"))
 
     def _on_done(self):
         # if not self.changed_lines:
@@ -82,7 +96,8 @@ class ReleaseItem(models.Model):
             jobs = self.env['queue.job'].search([
                 ('identity_key', 'ilike', f'release-item {rec.id}')
             ])
-            rec.count_failed_queuejobs = len(jobs.filtered(lambda x: x.state == 'failed'))
+            rec.count_failed_queuejobs = len(
+                jobs.filtered(lambda x: x.state == 'failed'))
 
     @api.model
     def create(self, vals):
@@ -119,7 +134,11 @@ class ReleaseItem(models.Model):
         except Exception:
             self.state = 'failed_technically'
             msg = traceback.format_exc()
-            self.release_id.message_post(body=f"Deployment of version {self.name} failed: {msg}")
+            self.release_id.message_post(body=(
+                "Deployment of "
+                f"version {self.name} "
+                f"failed: {msg}"))
+
             self.log_release = msg or ''
             if logsio:
                 self.log_release += '\n'.join(logsio.get_lines())
@@ -144,7 +163,6 @@ class ReleaseItem(models.Model):
         Heavy function - takes longer and does quite some work.
         """
         breakpoint()
-        self.ensure_one()
         target_branch_name = self.item_branch_name
         self.ensure_one()
 
@@ -154,7 +172,8 @@ class ReleaseItem(models.Model):
                 branches = ', '.join(self.mapped('branch_ids.name'))
                 try:
                     commits = self.mapped('branch_ids.commit_id')
-                    message_commit = self.repo_id._recreate_branch_from_commits(
+                    repo = self.repo_id
+                    message_commit = repo._recreate_branch_from_commits(
                         source_branch=self.release_id.branch_id.name,
                         commits=commits,
                         target_branch_name=target_branch_name,
@@ -178,9 +197,8 @@ class ReleaseItem(models.Model):
                 raise
 
             except Exception as ex:
-                msg = traceback.format_exc()
                 self.state = 'collecting_merge_conflict'
-                self.env.cr.commit()
+                self.exc_info = str(ex)
                 if logsio:
                     logsio.error(ex)
                 logger.error(ex)
@@ -189,7 +207,7 @@ class ReleaseItem(models.Model):
                     message_commit.approval_state = 'approved'
                     self.commit_ids = [[6, 0, commits.ids]]
                     self.commit_id = message_commit
-                    candidate_branch = self.repo_id.branch_ids.filtered(
+                    candidate_branch = repo.branch_ids.filtered(
                         lambda x: x.name == self.item_branch_name)
                     candidate_branch.ensure_one()
                     self.item_branch_id = candidate_branch
@@ -203,7 +221,10 @@ class ReleaseItem(models.Model):
     @api.fieldchange("branch_ids")
     def _on_change_branches(self, changeset):
         for rec in self:
-            (changeset['branch_ids']['old'] | changeset['branch_ids']['new'])._compute_state()
+            branches = (
+                changeset['branch_ids']['old'] 
+                | changeset['branch_ids']['new'])
+            branches._compute_state()
 
     def abort(self):
         for rec in self:
@@ -219,11 +240,16 @@ class ReleaseItem(models.Model):
 
     def _lock(self):
         try:
-            self.env.cr.execute("select id from cicd_release where id=%s for update nowait", (self.release_id.id,))
+            self.env.cr.execute((
+                "select id "
+                "from cicd_release "
+                "where id=%s for update nowait"
+            ), (self.release_id.id,))
         except psycopg2.errors.LockNotAvailable as ex:
-            raise RetryableJobError(
-                f"Could not work exclusivley on release {self.release_id.id} - retrying in few seconds",
-                ignore_retry=True, seconds=15) from ex
+            raise RetryableJobError((
+                "Could not work exclusivley "
+                f"on release {self.release_id.id} - retrying in few seconds",
+            ), ignore_retry=True, seconds=15) from ex
 
     def cron_heartbeat(self):
         self.ensure_one()
@@ -238,9 +264,10 @@ class ReleaseItem(models.Model):
                 if not self.branch_ids:
                     self.state = 'done'
                 else:
-                    if not all(x == 'merged' for x in self.mapped('branch_ids.state')):
+                    states = self.mapped('branch_ids.state')
+                    if not all(x == 'merged' for x in states):
                         self.state = 'failed_merge'
-                    elif 'candidate' in self.mapped('branch_ids.state'):
+                    elif 'candidate' in states:
                         self.state = 'failed_too_late'
                     else:
                         self.state = 'integrating'
