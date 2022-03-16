@@ -277,7 +277,6 @@ class ReleaseItem(models.Model):
         deadline = self.planned_maximum_finish_date
 
         if deadline < now:
-            breakpoint()
             if 'failed_' not in self.state:
                 if self.state not in ['done']:
                     self.state = 'failed_too_late'
