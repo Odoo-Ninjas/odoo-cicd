@@ -12,6 +12,7 @@ model_cicd_machine,base.group_system,cicd_machine_base_group_system,cicd.machine
 model_cicd_task,base.group_user,cicd_task_base_group_user,cicd.task - base_group_user,1,1,1,1
 model_cicd_release,base.group_user,cicd_release_base_group_user,cicd.release - base_group_user,1,1,1,1
 model_cicd_release_item,base.group_user,cicd_release_item_base_group_user,cicd.release.item - base_group_user,1,1,1,1
+model_cicd_release_item_branch,base.group_user,cicd_release_item_branch_base_group_user,cicd.release.item.branch - base_group_user,1,1,1,1
 model_cicd_release_action,base.group_user,cicd_release_action_base_group_user,cicd.release.action - base_group_user,1,1,1,1
 
 model_cicd_registry,base.group_user,cicd_registry_base_group_user,cicd.registry - base_group_user,1,0,0,0

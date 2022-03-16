@@ -27,6 +27,7 @@ class NewBranch(Exception):
 
 
 class Repository(models.Model):
+    _inherit ['mixin.schedule']
     _name = 'cicd.git.repo'
 
     short = fields.Char(

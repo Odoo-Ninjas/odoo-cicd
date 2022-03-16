@@ -19,7 +19,6 @@ class Release(models.Model):
     candidate_branch = fields.Char(string="Candidate", required=True, default="master_candidate")
     item_ids = fields.One2many('cicd.release.item', 'release_id', string="Release")
     auto_release = fields.Boolean("Auto Release")
-    auto_release_cronjob_id = fields.Many2one('ir.cron', string="Scheduled Release")
     sequence_id = fields.Many2one('ir.sequence', string="Version Sequence", required=True)
     countdown_minutes = fields.Integer("Countdown Minutes")
     is_latest_release_done = fields.Boolean("Latest Release Done", compute="_compute_latest_release_done")
@@ -70,25 +69,6 @@ class Release(models.Model):
                     (field, '=', rec[field] if isinstance(rec[field], (bool, str)) else rec[field].id),
                 ]):
                     raise ValidationError("Branches must be unique per release!")
-
-
-    @api.recordchange('auto_release')
-    def _onchange_autorelease(self):
-        for rec in self:
-            if not rec.auto_release and rec.auto_release_cronjob_id:
-                rec.auto_release_cronjob_id.sudo().unlink()
-            elif rec.auto_release and not rec.auto_release_cronjob_id:
-                rec._make_cronjob()
-
-    def _make_cronjob(self):
-        models = self.env['ir.model'].search([('model', '=', self._name)])
-        self.auto_release_cronjob_id = self.env['ir.cron'].create({
-            'name': self.name + " scheduled release",
-            'model_id': models.id,
-            'code': f'model.browse({self.id})._cron_schedule_release_times()',
-            'numbercall': -1,
-            'interval_type': 'days',
-        })
 
     def _cron_schedule_release_times(self):
         for self in self:

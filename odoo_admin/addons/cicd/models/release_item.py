@@ -17,6 +17,7 @@ class ReleaseItem(models.Model):
     _log_access = False
 
     name = fields.Char("Version")
+    branch_ids = fields.One2many('cicd.release.item.branch', 'item_id', tracking=True)
     release_id = fields.Many2one('cicd.release', string="Release", required=True, ondelete="cascade")
     planned_date = fields.Datetime("Planned Deploy Date", default=lambda self: fields.Datetime.now(), tracking=True)
     done_date = fields.Datetime("Done", tracking=True)
@@ -24,14 +25,17 @@ class ReleaseItem(models.Model):
     final_curtain = fields.Datetime("Final Curtains", tracking=True)
     log_release = fields.Text("Log", readonly=True)
     state = fields.Selection([
-        ("new", "New"),
+        ("collecting", "Collecting"),
+        ('collecting_merge_conflict', 'Collecting Merge Conflict'),
+        ('integrating', 'Integration'),
+        ('failed_merge', 'Failed: Merge Conflict'),
+        ('failed_integration', 'Failed: Integration'),
+        ('failed_technically', 'Failed technically'),
+        ('failed_too_late', 'Failed: too late'),
+        ('ready', 'Ready'),
         ('done', 'Done'),
-        ('failed', 'Failed'),
-        ('ignore', 'Ignore'),
     ], string="State", default='new', required=True, tracking=True)
     computed_summary = fields.Text("Computed Summary", compute="_compute_summary", tracking=True)
-    commit_ids = fields.Many2many('cicd.git.commit', string="Commits", help="Commits that are released.", tracking=True)
-    branch_ids = fields.Many2many('cicd.git.branch', string="Branches", tracking=True)
     count_failed_queuejobs = fields.Integer("Failed Jobs", compute="_compute_failed_jobs")
     try_counter = fields.Integer("Try Counter", tracking=True)
     commit_id = fields.Many2one('cicd.git.commit', string="Released commit", help="After merging all tested commits this is the commit that holds all merged commits.")

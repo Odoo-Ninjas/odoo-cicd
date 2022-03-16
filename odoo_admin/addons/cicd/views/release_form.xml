@@ -28,8 +28,8 @@
 						<group string="Continuous Deployment">
 							<field name="countdown_minutes"/>
 							<field name="auto_release"/>
-							<field name="auto_release_cronjob_id" readonly='1' attrs="{'invisible': [('auto_release', '=', False)]}"/>
-							<field name="planned_timestamp_after_preparation" attrs="{'invisible': [('auto_release', '=', False)], 'required': [('auto_release', '=', True)]}" />
+							<field name="hour" />
+							<field name="minute" />
 						</group>
 						<notebook>
 							<page string="Versions">
