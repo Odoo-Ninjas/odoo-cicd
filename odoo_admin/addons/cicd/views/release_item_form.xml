@@ -22,8 +22,8 @@
 						</group>
 						<group string="Merge Information">
 							<field name="commit_id" readonly="1"/>
-							<field name="item_branch_name" />
-							<field name="item_branch_id" />
+							<field name="item_branch_name" attrs="{'invisible': [('item_branch_id', '!=', False)]}"/>
+							<field name="item_branch_id"  attrs="{'invisible': [('item_branch_id', '=', False)]}"/>
 						</group>
 						<notebook>
 							<page string="Log">

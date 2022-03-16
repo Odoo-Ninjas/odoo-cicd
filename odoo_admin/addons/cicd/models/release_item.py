@@ -32,8 +32,9 @@ class ReleaseItem(models.Model):
         'cicd.release', string="Release",
         required=True, ondelete="cascade")
     planned_date = fields.Datetime(
-        "Planned Deploy Date",
-        default=lambda self: fields.Datetime.now(), tracking=True)
+        "Planned Deploy Date", tracking=True)
+    planned_maximum_finish_date = fields.Datetime(compute="_compute_dates")
+    stop_collecting_at = fields.Datetime(compute="_compute_dates")
     done_date = fields.Datetime("Done", tracking=True)
     changed_lines = fields.Integer("Changed Lines", tracking=True)
     final_curtain = fields.Datetime("Final Curtains", tracking=True)
@@ -69,6 +70,24 @@ class ReleaseItem(models.Model):
         ('standard', 'Standard'),
         ('hotfix', 'Hotfix'),
     ], default="standard", required=True, readonly=True)
+
+    @api.depends(
+        'planned_date',
+        'release_id.countdown_minutes',
+        'release_id.minutes_to_release',
+        )
+    def _compute_dates(self):
+        for rec in self:
+            if not rec.planned_date:
+                rec.stop_collecting_at = False
+                rec.planned_maximum_finish_date = False
+            else:
+                start_from = arrow.get(rec.planned_date)
+                rec.stop_collecting_at = start_from.shift(
+                    minutes=-1 * rec.release_id.countdown_minutes
+                    ).strftime(DTF)
+                rec.planned_maximum_finish_date = start_from.shift(
+                    minutes=rec.release_id.minutes_to_release).strftime(DTF)
 
     @api.constrains("state")
     def _ensure_one_item_only(self):
@@ -187,6 +206,9 @@ class ReleaseItem(models.Model):
                             f"{branches}"
                         )
                     )
+                    item_branch = message_commit.branch_ids.filtered(
+                        lambda x: x.name == self.item_branch_name)
+                    self.item_branch_id = item_branch
                     self.branch_ids.write({'state': 'merged'})
 
                 except MergeConflict as ex:
@@ -252,6 +274,14 @@ class ReleaseItem(models.Model):
         breakpoint()
         self.ensure_one()
         self._lock()
+        now = fields.Datetime.now()
+        deadline = self.planned_maximum_finish_date
+
+        if deadline < now:
+            if 'failed_' not in self.state:
+                if self.state not in ['done']:
+                    self.state = 'too_late'
+                    return
 
         if self.state == 'collecting':
             self._collect()
@@ -294,11 +324,9 @@ class ReleaseItem(models.Model):
                     self.state = 'ready'
 
         elif self.state == 'ready':
-            deadline = arrow.utcnow().shift(
-                minutes=self.release_id.minutes_to_release).stftime(DTF)
-            if self.next_date.strftime(DTF) < deadline:
+            if now > deadline:
                 self.state = 'failed_too_late'
-            else:
+            elif now > self.planned_date:
                 self._do_release()
 
         elif self.state == 'done':

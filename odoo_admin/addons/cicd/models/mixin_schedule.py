@@ -10,12 +10,10 @@ class Schedule(models.AbstractModel):
 
     hour = fields.Integer("Hour")
     minute = fields.Integer("Minute")
-    next_date = fields.Datetime(compute="_compute_next_date")
 
-    def _compute_next_date(self):
+    def _compute_next_date(self, start_from):
         for rec in self:
-            start_from = arrow.get()
-            test = start_from
+            test = start_from or arrow.get(start_from) or arrow.get()
             test = test.replace(hour=self.hour, minute=self.minute)
             if test < start_from:
                 test = test.shift(days=1)
