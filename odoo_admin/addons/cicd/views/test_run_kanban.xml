@@ -21,7 +21,11 @@
 									<field name="state"/>
 								</div>
 								<div>
-									<strong>Date:</strong>
+									<strong>Date Created:</strong>
+									<field name="create_date"/>
+								</div>
+								<div>
+									<strong>Date Started:</strong>
 									<field name="date"/>
 								</div>
 								<div>

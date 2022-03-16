@@ -28,7 +28,9 @@ class CicdTestRun(models.Model):
 
     name = fields.Char(compute="_compute_name")
     do_abort = fields.Boolean("Abort when possible")
-    date = fields.Datetime("Date", default=lambda self: fields.Datetime.now(), required=True)
+    date = fields.Datetime(
+        "Date Started", default=lambda self: fields.Datetime.now(), required=True,
+        tracking=True)
     commit_id = fields.Many2one("cicd.git.commit", "Commit", required=True)
     commit_id_short = fields.Char(related="commit_id.short", store=True)
     branch_id = fields.Many2one('cicd.git.branch', string="Initiating branch", required=True)
@@ -42,9 +44,9 @@ class CicdTestRun(models.Model):
         ('omitted', 'Omitted'),
         ('failed', 'Failed'),
     ], string="Result", required=True, default='open')
-    success_rate = fields.Integer("Success Rate [%]")
+    success_rate = fields.Integer("Success Rate [%]", tracking=True)
     line_ids = fields.One2many('cicd.test.run.line', 'run_id', string="Lines")
-    duration = fields.Integer("Duration [s]")
+    duration = fields.Integer("Duration [s]", tracking=True)
 
     def abort(self):
         self.do_abort = True
@@ -196,6 +198,7 @@ ODOO_DEMO=1
 
         root = machine._get_volume('source')
         started = arrow.get()
+        self.date = fields.Datetime.now()
         project_name = self.branch_id.project_name
         assert project_name
         with machine._shell(
@@ -405,6 +408,7 @@ ODOO_DEMO=1
             raise ValidationError(_("State of branch does not allow a repeated test run"))
         self = self.sudo()
         self.state = 'open' # regular cronjob makes task for that
+        self.success_rate = 0
 
     def _run_create_empty_db(self, shell, task, logsio):
 

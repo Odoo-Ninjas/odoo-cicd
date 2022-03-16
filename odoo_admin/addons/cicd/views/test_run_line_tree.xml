@@ -4,7 +4,7 @@
 			<field name="name">cicd.test.run.line tree</field>
 			<field name="model">cicd.test.run.line</field>
 			<field name="arch" type="xml">
-				<tree decoration-danger="state == 'failed'" decoration-success="state == 'success'">
+				<tree decoration-danger="state == 'failed'" decoration-success="state == 'success'" create="0" delete="0">
 					<button name="open_window" string="" icon="fa-external-link" type="object" />
 					<field name="ttype"/>
 					<field name="name"/>
