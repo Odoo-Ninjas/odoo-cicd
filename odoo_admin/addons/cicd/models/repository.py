@@ -30,7 +30,6 @@ class MergeConflict(Exception):
         self.conflicts = conflicts
 
 class Repository(models.Model):
-    _inherit = ['mixin.schedule']
     _name = 'cicd.git.repo'
 
     short = fields.Char(

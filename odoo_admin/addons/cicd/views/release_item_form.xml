@@ -7,7 +7,6 @@
 				<form string="">
 					<header>
 						<field name="state" widget="statusbar" attrs="{'readonly': True}" />
-						<button name="recreate_candidate_branch_in_git" string="Recreate Merged Branch" type="object" />
 					</header>
 					<sheet>
 						<div class="oe_button_box" name="button_box">
@@ -22,7 +21,11 @@
 							<field name="final_curtain" />
 							<field name="release_type" readonly="1" />
 							<field name="computed_summary" />
+						</group>
+						<group string="Merge Information">
 							<field name="commit_id" readonly="1"/>
+							<field name="item_branch_name" />
+							<field name="item_branch_id" />
 						</group>
 						<notebook>
 							<page string="Log">
