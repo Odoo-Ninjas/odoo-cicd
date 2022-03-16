@@ -131,7 +131,7 @@ class Task(models.Model):
         with pg_advisory_lock(
             self.env.cr, f"task-branch-{self.branch_id.id}",
             detailinfo=detailinfo
-            ):
+        ):
             with self._new_cursor(not now) as env2:
                 self = env2[self._name].browse(self.id)
                 self.state = 'started'

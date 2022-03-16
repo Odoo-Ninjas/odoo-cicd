@@ -736,6 +736,10 @@ class GitBranch(models.Model):
                 ) as shell:
 
                 try:
+                    if shell.cwd and shell.exists(shell.cwd) and \
+                            shell.remove(shell.cwd / "/.git"):
+                        shell.checkout_branch(self.name)
+
                     yield shell
                 except Exception as ex:
                     msg = traceback.format_exc()

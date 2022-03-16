@@ -135,7 +135,8 @@ class Branch(models.Model):
                     state = 'up' if container_state == 'running' else 'down'
 
                     container = rec.container_ids.filtered(
-                        lambda x: x.name == container_name)
+                        lambda x: x.name == container_name
+                    )
                     if not container:
                         rec.container_ids = [[0, 0, {
                             'name': container_name,
@@ -319,6 +320,11 @@ class Branch(models.Model):
         if not test_run:
             test_run = self.test_run_ids.filtered(
                 lambda x: x.commit_id == self.latest_commit_id)
+            if test_run:
+                test_run = test_run.filtered(lambda x: x.state == 'failed')
+                if test_run:
+                    test_run[0].state = 'open'
+
             if not test_run:
                 test_run = self.test_run_ids.create({
                     'commit_id': self.latest_commit_id.id,
