@@ -17,7 +17,11 @@ class ReleaseItem(models.Model):
     _log_access = False
 
     name = fields.Char("Version")
-    branch_ids = fields.One2many('cicd.release.item.branch', 'item_id', tracking=True)
+    repo_id = fields.Many2one(
+        'cicd.git.repo', related="release_id.repo_id")
+    branch_ids = fields.One2many(
+        'cicd.release.item.branch', 'item_id', tracking=True)
+    item_branch_name = fields.Char(compute="_compute_item_branch_name")
     release_id = fields.Many2one('cicd.release', string="Release", required=True, ondelete="cascade")
     planned_date = fields.Datetime("Planned Deploy Date", default=lambda self: fields.Datetime.now(), tracking=True)
     done_date = fields.Datetime("Done", tracking=True)
@@ -34,11 +38,12 @@ class ReleaseItem(models.Model):
         ('failed_too_late', 'Failed: too late'),
         ('ready', 'Ready'),
         ('done', 'Done'),
-    ], string="State", default='new', required=True, tracking=True)
+    ], string="State", default='collecting', required=True, tracking=True)
     computed_summary = fields.Text("Computed Summary", compute="_compute_summary", tracking=True)
     count_failed_queuejobs = fields.Integer("Failed Jobs", compute="_compute_failed_jobs")
     try_counter = fields.Integer("Try Counter", tracking=True)
     commit_id = fields.Many2one('cicd.git.commit', string="Released commit", help="After merging all tested commits this is the commit that holds all merged commits.")
+    needs_merge = fields.Boolean()
 
     release_type = fields.Selection([
         ('standard', 'Standard'),
@@ -177,105 +182,30 @@ class ReleaseItem(models.Model):
         finally:
             self.env.cr.commit()
 
-    def _get_ignored_branch_names(self, repo):
+    def _get_ignored_branch_names(self):
+        self.ensure_one()
         all_releases = self.env['cicd.release'].sudo().search([
-            ('branch_id.repo_id', '=', repo.id)
+            ('branch_id.repo_id', '=', self.repo_id.id)
             ])
         ignored_branch_names = []
         ignored_branch_names += list(all_releases.mapped('candidate_branch'))
         ignored_branch_names += list(all_releases.mapped('branch_id.name'))
         return ignored_branch_names
 
-    def _collect_tested_branches(self, repo):
-        breakpoint()
-        for rec in self:
-            if rec.release_type == 'hotfix':
-                continue
-            if rec.state not in ['new']:
-                continue
-            if rec.release_type != 'standard':
-                continue
-            repo = rec.release_id.branch_id.repo_id
-
-            ignored_branch_names = self._get_ignored_branch_names(repo)
-
-            # select from many states:
-            # * case: previous release may be failed: technical error, merge conflict
-            # * case: state is done but was released at another release, so check again
-
-            branches = self.env['cicd.git.branch'].search([
-                ('state', 'in', ['candidate', 'tested', 'release', 'done']), # why so many states
-                ('active', '=', True),
-                ('block_release', '=', False),
-                ('repo_id', '=', repo.id),
-                ('name', 'not in', ignored_branch_names),
-                ('id', 'not in', (rec.release_id.branch_id).ids),
-            ]) | rec.branch_ids
-
-            # remove branches, that are already merged
-            branches = rec._filter_out_invalid_branches(branches)
-            for branch in list(branches):
-                if branch.latest_commit_id in rec.release_id.branch_id.commit_ids:
-                    branches -= branch
-            rec.branch_ids = [[6, 0, branches.ids]]
-
-    def _filter_out_invalid_branches(self, branches):
-        self.ensure_one()
-        repo = self.release_id.repo_id
-        ignored_branch_names = self._get_ignored_branch_names(repo)
-        for b in list(branches):
-            if b.state not in ['tested', 'candidate', 'done', 'release']:
-                branches -= b
-            if b.name in ignored_branch_names:
-                branches -= b
-
-            if b.target_release_ids and self.release_id not in b.target_release_ids:
-                branches -= b
-
-            if self.env['cicd.release'].search_count([('repo_id', '=', self.release_id.repo_id.id)]) > 1:
-                if not b.target_release_ids:
-                    branches -= b
-
-        branches -= branches.filtered(lambda x: x.block_release or not x.active)
-        return branches
-
-    def recreate_candidate_branch_in_git(self):
-        if self.state == 'failed':
-            if not self.release_id.item_ids.filtered(lambda x: x.state == 'new'):
-                self.state = 'new'
-        self.commit_ids = [[6, 0, []]]
-        self._recreate_candidate_branch_in_git()
-
-    def _recreate_candidate_branch_in_git(self):
+    def _merge(self):
         """
         Heavy function - takes longer and does quite some work.
         """
         breakpoint()
         self.ensure_one()
-        if self.state not in ('new'):
-            return
-            # raise ValidationError("Branches can only be changed in state 'new'.")
-        if not self.branch_ids:
-            return
+        target_branch_name = self.item_branch_name
+        self.ensure_one()
 
-        # fetch latest commits:
         with self.release_id._get_logsio() as logsio:
-            repo = self.release_id.repo_id.with_context(active_test=False)
-            # remove blocked
-            self.branch_ids = [[6, 0, self._filter_out_invalid_branches(self.branch_ids).ids]]
-            critical_date = self.final_curtain or arrow.get().datetime
-            commits = self._get_commits_within_final_curtains(critical_date)
-            logsio.info("Identified following commits under final curtain:")
-            for commit in commits:
-                logsio.info(commit.name)
-
-            if set(commits.ids) == set(self.commit_ids.ids):
-                logsio.info("The commits did not change - so a new candidate branch is not created.")
-                return
-
             logsio.info("Commits changed, so creating a new candidate branch")
             try:
                 branches = ', '.join(self.mapped('branch_ids.name'))
+                hier weiter
                 # after pull the message_commit is sorted with git log and
                 # appears at the top of the branch
                 message_commit = repo._recreate_branch_from_commits(
@@ -317,23 +247,7 @@ class ReleaseItem(models.Model):
                         | candidate_branch
                     )._compute_state()
 
-    def _get_commits_within_final_curtains(self, critical_date):
-        commits = self.env['cicd.git.commit']
-
-        for branch in self.branch_ids:
-            for commit in branch.commit_ids.sorted(
-                    lambda x: x.date, reverse=True):
-                if critical_date:
-                    if commit.date.strftime("%Y-%m-%d %H:%M:%S") > critical_date.strftime("%Y-%m-%d %H:%M:%S"):
-                        continue
-
-                if not commit.force_approved and (commit.test_state != 'success' or commit.approval_state != 'approved'):
-                    continue
-
-                commits |= commit
-
-                break
-        return commits
+        self.needs_merge = False
 
     @api.fieldchange("branch_ids")
     def _on_change_branches(self, changeset):
@@ -357,3 +271,75 @@ class ReleaseItem(models.Model):
             if rec.state in ('failed', 'ignore'):
                 rec.state = 'new'
                 rec.log_release = False
+
+    def cron_heartbeat(self):
+        self.ensure_one()
+
+        if self.state == 'collecting':
+            self._collect()
+            if self.needs_merge:
+                self.merge()
+        elif 'failed_' in self.state:
+            pass
+            
+        else:
+            raise NotImplementedError()k
+
+    def _collect(self):
+        breakpoint()
+        for rec in self:
+            ignored_branch_names = rec._get_ignored_branch_names()
+            branches = self.env['cicd.git.branch'].search([
+                ('repo_id', '=', rec.repo_id.id),
+                ('block_release', '=', False),
+                ('active', '=', True),
+                ('name', 'not in', ignored_branch_names),
+                ('state', 'in', ['tested', 'candidate']),
+            ])
+
+            def _keep_undeployed_commits(branch):
+                done_items = self.release_id.item_ids.filtered(
+                    lambda x: x.state == 'done')
+                done_commits = done_items.mapped('branch_ids.commit_ids')
+                return branch.last_commit_id not in done_commits
+
+            branches = branches.filtered(_keep_undeployed_commits)
+
+            for branch in branches:
+                existing = rec.branch_ids.filtered(
+                    lambda x: x.branch_id == branch)
+                if not existing:
+                    rec.branch_ids = [[0, 0, {
+                        'branch_id': branch.id,
+                    }]]
+                    rec.needs_merge = True
+
+                elif existing.commit_id != branch.last_commit_id:
+                    existing.commit_id = branch.last_commit_id
+                    rec.needs_merge = True
+
+            for existing in rec.branch_ids:
+                if existing.branch_id not in branches:
+                    existing.unlink()
+                    rec.needs_merge = True
+
+    def do_release_if_planned(self):
+        breakpoint()
+        for rec in self:
+            item = rec.item_ids.with_context(prefetch_fields=False).filtered(
+                lambda x: x.state in ('new')).sorted(lambda x: x.id)
+            if not item:
+                continue
+            item = item[0]
+            if item.planned_date > fields.Datetime.now():
+                continue
+
+            item._trigger_do_release()
+
+    def _compute_item_branch_name(self):
+        for rec in self:
+            rec.item_branch_name = (
+                "release_"
+                f"{rec.relase_id.branch_id.name}_"
+                f"{rec.id}"
+            )

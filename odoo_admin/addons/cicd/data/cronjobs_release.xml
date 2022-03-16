@@ -1,24 +1,14 @@
 <odoo>
 	<data noupdate='0'>
 		<record id="update_candidates" model="ir.cron">
-			<field name="name">cicd.release:collect_tested_branches and trigger recreate_candidate_branch()</field>
-			<field name="interval_number">10</field>
-			<field name="interval_type">minutes</field>
-			<field name="model_id" ref="model_cicd_release" />
-			<field name="state">code</field>
-			<field name="code">
-model.search([]).collect_tested_branches()
-			</field>
-			<field name="nextcall" eval="'2022-01-01 20:15:00'" />
-			<field name="numbercall">-1</field>
-		</record>
-		<record id="perform_release" model="ir.cron">
-			<field name="name">perform_release</field>
+			<field name="name">release:heartbeat</field>
 			<field name="interval_number">1</field>
 			<field name="interval_type">minutes</field>
 			<field name="model_id" ref="model_cicd_release" />
 			<field name="state">code</field>
-			<field name="code">model.search([]).do_release_if_planned()</field>
+			<field name="code">
+model.cron_heartbeat()
+			</field>
 			<field name="nextcall" eval="'2022-01-01 20:15:00'" />
 			<field name="numbercall">-1</field>
 		</record>
