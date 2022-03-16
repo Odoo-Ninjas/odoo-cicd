@@ -254,6 +254,7 @@ class GitBranch(models.Model):
         "latest_commit_id.test_run_ids",
         "latest_commit_id.test_run_ids.state",
         "release_item_ids.state",
+        "release_item_ids",
         "any_testing",
     )
     def _compute_state(self):
@@ -278,8 +279,9 @@ class GitBranch(models.Model):
                 state = 'approve'
 
             elif commit.approval_state == 'approved' and \
-                    commit.test_state in [False, 'open', 'running'] and \
-                        rec.any_testing and not commit.force_approved:
+                commit.test_state in [False, 'open', 'running'] and \
+                    rec.any_testing and not commit.force_approved:
+                
                 state = 'testable'
 
             elif commit.test_state == 'failed' or \
@@ -295,24 +297,18 @@ class GitBranch(models.Model):
                     or commit.force_approved
                     ) and commit.approval_state == 'approved':
 
-                release_items = rec.release_item_ids.filtered(
-                    lambda ri: ri.state != 'ignore')
+                release_items = rec.release_item_ids.mapped(
+                    'release_id.next_to_finish_item_id')
+                latest_states = release_items.mapped('state')
 
-                latest_states = set()
-
-                def keyfunc(ri):
-                    return ri.release_id
-
-                release_items_by_release = groupby(
-                    release_items.sorted(keyfunc), keyfunc)
-
-                for release, release_items in release_items_by_release:
-                    latest_states.add(next(release_items).state)
-
-                if set(['new', 'failed']) & latest_states:
-                    state = 'candidate'
-                elif list(latest_states) == ['done']:
+                if release_items and all(x == 'done' for x in latest_states):
                     state = 'done'
+                elif 'collecting_merge_conflict' in latest_states:
+                    state = 'merge_conflict'
+                elif 'collecting_merge_conflict' in latest_states:
+                    state = 'merge_conflict'
+                elif release_items:
+                    state = 'candidate'
                 else:
                     state = 'tested'
 

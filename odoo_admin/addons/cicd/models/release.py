@@ -29,6 +29,8 @@ class Release(models.Model):
     minutes_to_release = fields.Integer("Max Minutes for release.", default=120)
     last_item_id = fields.Many2one(
         'cicd.release.item', compute="_compute_last")
+    next_to_finish_item_id = fields.Many2one(
+        'cicd.release.item', compute="_compute_last")
     state = fields.Selection(related='item_ids.state')
     action_ids = fields.One2many(
         'cicd.release.action', 'release_id', string="Release Actions")
@@ -51,13 +53,28 @@ class Release(models.Model):
 
     @api.depends("item_ids")
     def _compute_last(self):
+        """
+        Next to finish item - what is that:
+
+        If the item becomes "ready" then a new item with state 'collecting'
+        is created. So there are two active items hanging around.
+        The next todo item is then the second last item in that scenario.
+
+        Needed for calculating branch state.
+        """
         for rec in self:
             items = rec.item_ids.with_context(prefetch_fields=False).sorted(
                 lambda x: x.id, reverse=True)
             if not items:
                 rec.last_item_id = False
+                rec.next_to_finish_item_id = False
             else:
                 rec.last_item_id = items[0]
+                rec.next_to_finish_item_id = items[0]
+                if len(items) > 1:
+                    if items[1].state == 'ready':
+                        rec.next_to_finish_item_id = items[1]
+                    
 
     @api.constrains("candidate_branch", "branch_id")
     def _check_branches(self):
