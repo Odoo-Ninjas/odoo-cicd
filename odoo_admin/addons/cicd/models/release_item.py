@@ -40,7 +40,7 @@ class ReleaseItem(models.Model):
         ('failed_technically', 'Failed technically'),
         ('failed_too_late', 'Failed: too late'),
         ('failed_user', "Failed: by user"),
-        ('failed_merge_master': "Failed: merge on master"),
+        ('failed_merge_master', "Failed: merge on master"),
         ('ready', 'Ready'),
         ('done', 'Done'),
     ], string="State", default='collecting', required=True, tracking=True)

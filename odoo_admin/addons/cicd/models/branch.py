@@ -89,7 +89,10 @@ class GitBranch(models.Model):
     release_ids = fields.One2many(
         "cicd.release", "branch_id", string="Releases")
 
-    release_item_ids = fields.Many2many('cicd.release.item', string="Releases")
+    release_branch_ids = fields.Many2one(
+        'cicd.release.item.branch', 'branch_id')
+    release_item_ids = fields.Many2many(
+        related='release_branch_ids.item_id', string="Releases")
     computed_release_item_ids = fields.Many2many(
         'cicd.release.item', "Releases", compute="_compute_releases")
 
@@ -254,6 +257,8 @@ class GitBranch(models.Model):
         "latest_commit_id.test_run_ids",
         "latest_commit_id.test_run_ids.state",
         "release_item_ids.state",
+        "release_branch_ids.state",
+        "release_branch_ids",
         "release_item_ids",
         "any_testing",
     )
