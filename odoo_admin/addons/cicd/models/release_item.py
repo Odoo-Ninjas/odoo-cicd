@@ -23,6 +23,8 @@ class ReleaseItem(models.Model):
         'cicd.git.repo', related="release_id.repo_id")
     branch_ids = fields.One2many(
         'cicd.release.item.branch', 'item_id', tracking=True)
+    branch_branch_ids = fields.Many2many(
+        'cicd.git.branch', compute="_compute_branch_branch_ids")
     item_branch_name = fields.Char(compute="_compute_item_branch_name")
     item_branch_id = fields.Many2one(
         'cicd.git.branch', string="Release Branch")
@@ -109,7 +111,7 @@ class ReleaseItem(models.Model):
     def _compute_summary(self):
         for rec in self:
             summary = []
-            for branch in rec.branch_ids.sorted(lambda x: x.date):
+            for branch in rec.branch_ids.branch_id.sorted(lambda x: x.date):
                 summary.append(f"* {branch.enduser_summary or branch.name}")
             rec.computed_summary = '\n'.join(summary)
 
@@ -154,8 +156,9 @@ class ReleaseItem(models.Model):
             ('branch_id.repo_id', '=', self.repo_id.id)
             ])
         ignored_branch_names = []
-        ignored_branch_names += list(all_releases.mapped('item_ids.item_branch_name'))
-        ignored_branch_names += list(all_releases.mapped('branch_id.name'))
+        ignored_branch_names += list(all_releases.item_ids.mapped(
+            'item_branch_name'))
+        ignored_branch_names += list(all_releases.branch_id.mapped('name'))
         return ignored_branch_names
 
     def merge(self):
@@ -169,7 +172,7 @@ class ReleaseItem(models.Model):
         with self.release_id._get_logsio() as logsio:
             logsio.info("Commits changed, so creating a new candidate branch")
             try:
-                branches = ', '.join(self.mapped('branch_ids.branch_id.name'))
+                branches = ', '.join(self.branch_ids.branch_id.mapped('name'))
                 try:
                     commits = self.mapped('branch_ids.commit_id')
                     repo = self.repo_id
@@ -218,14 +221,13 @@ class ReleaseItem(models.Model):
 
                 self.mapped('branch_ids.branch_id')._compute_state()
 
-
     @api.fieldchange("branch_ids")
     def _on_change_branches(self, changeset):
         for rec in self:
             branches = (
                 changeset['branch_ids']['old']
                 | changeset['branch_ids']['new'])
-            branches.mapped('branch_id')._compute_state()
+            branches.branch_id._compute_state()
 
     def abort(self):
         for rec in self:
@@ -247,6 +249,7 @@ class ReleaseItem(models.Model):
             ), ignore_retry=True, seconds=15) from ex
 
     def cron_heartbeat(self):
+        breakpoint()
         self.ensure_one()
         self._lock()
 
@@ -259,7 +262,7 @@ class ReleaseItem(models.Model):
                 if not self.branch_ids:
                     self.state = 'done'
                 else:
-                    states = self.mapped('branch_ids.state')
+                    states = self.branch_ids.mapped('state')
                     if not all(x == 'merged' for x in states):
                         self.state = 'failed_merge'
                     elif 'candidate' in states:
@@ -355,7 +358,7 @@ class ReleaseItem(models.Model):
             def _keep_undeployed_commits(branch):
                 done_items = self.release_id.item_ids.filtered(
                     lambda x: x.state == 'done')
-                done_commits = done_items.mapped('branch_ids.commit_id')
+                done_commits = done_items.branch_ids.mapped('commit_id')
                 return branch.latest_commit_id not in done_commits
 
             branches = branches.filtered(_keep_undeployed_commits)
@@ -388,13 +391,19 @@ class ReleaseItem(models.Model):
 
     def retry(self):
         for rec in self:
+            rec.log_release = False
+            rec.exc_info = False
+
             if rec.state == 'failed_technically':
                 rec.state = 'ready'
-                rec.log_release = False
 
             elif rec.state == 'collecting_merge_conflict':
                 rec.state = 'collecting'
-                rec.log_release = False
+                rec.needs_merge = True
 
             else:
                 raise NotImplementedError(rec.state)
+
+    def _compute_branch_branch_ids(self):
+        for rec in self:
+            rec.branch_branch_ids = rec.branch_ids.mapped('branch_id')

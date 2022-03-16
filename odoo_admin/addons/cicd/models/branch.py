@@ -209,7 +209,12 @@ class GitBranch(models.Model):
         return res
 
     def _search_release_items(self, operator, value):
-        raise NotImplementedError()
+        if operator == 'in':
+            branch = self.env['cicd.release.item.branch'].search([
+                ('item_id', 'in', value)]).branch_id
+            return [('id', 'in', branch.ids)]
+        else:
+            raise NotImplementedError()
 
     def _compute_releases(self):
         """

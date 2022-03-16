@@ -37,7 +37,7 @@
 										<button name="open_window" string="" icon='fa-external-link' type="object" />
 										<field name="name" readonly='1'/>
 										<field name="release_type"/>
-										<field name="branch_ids" widget='many2many_tags' attrs="{'readonly': [('release_type', '!=', 'hotfix')]}"/>
+										<field name="branch_branch_ids" widget='many2many_tags' attrs="{'readonly': [('release_type', '!=', 'hotfix')]}"/>
 										<field name="final_curtain"/>
 										<field name="planned_date"/>
 										<field name="done_date" readonly='1'/>
