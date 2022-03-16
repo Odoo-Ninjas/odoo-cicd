@@ -52,4 +52,4 @@
     'name': 'cicd',
     'qweb': [],
     'test': [],
-    'version': '15.0.1.1'}
+    'version': '15.0.1.2'}
