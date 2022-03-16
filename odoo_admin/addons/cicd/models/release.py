@@ -37,13 +37,6 @@ class Release(models.Model):
         'cicd.release.action', 'release_id', string="Release Actions")
     send_pre_release_information = fields.Boolean(
         "Send Pre-Release Information")
-    stop_collecting_at = fields.Datetime(compute="_compute_stop_collecting_at")
-
-    def _compute_stop_collecting_at(self):
-        for rec in self:
-            rec.stop_collecting_at = arrow.get(
-                rec.next_date).shift(
-                    minutes=-1 * rec.countdown_minutes).strftime(DTF)
 
     @api.constrains("project_name")
     def _check_project_name(self):
