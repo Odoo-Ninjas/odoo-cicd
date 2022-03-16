@@ -81,8 +81,9 @@ def pg_advisory_lock(cr, lock, detailinfo=None):
                 )
 
 from . import mixin_open_window
-from . import ticketsystem
+from . import mixin_schedule
 from . import mixin_size
+from . import ticketsystem
 from . import branch
 from . import branch_button_actions
 from . import branch_actions
@@ -105,4 +106,3 @@ from . import compressor
 from . import release_actions
 from . import wiz_new_branch
 from . import release_item_branch
-from . import schedule_mixin
