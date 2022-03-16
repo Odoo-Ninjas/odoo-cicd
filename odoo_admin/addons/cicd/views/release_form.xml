@@ -40,7 +40,6 @@
 										<field name="branch_ids" widget='many2many_tags' attrs="{'readonly': [('release_type', '!=', 'hotfix')]}"/>
 										<field name="final_curtain"/>
 										<field name="planned_date"/>
-										<field name="count_failed_queuejobs"/>
 										<field name="done_date" readonly='1'/>
 										<field name="state" readonly='1'/>
 									</tree>
