@@ -12,6 +12,7 @@
 				<field name="sequence_id"/>
 				<field name="countdown_minutes"/>
 				<field name="auto_release"/>
+				<field name="state"/>
 			</tree>
 		</field>
 	</record>
