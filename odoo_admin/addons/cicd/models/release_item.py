@@ -183,7 +183,6 @@ class ReleaseItem(models.Model):
         """
         Heavy function - takes longer and does quite some work.
         """
-        breakpoint()
         target_branch_name = self.item_branch_name
         self.ensure_one()
 
@@ -270,7 +269,6 @@ class ReleaseItem(models.Model):
             ), ignore_retry=True, seconds=15) from ex
 
     def cron_heartbeat(self):
-        breakpoint()
         self.ensure_one()
         self._lock()
         now = fields.Datetime.now()
@@ -335,8 +333,7 @@ class ReleaseItem(models.Model):
             pass
 
         else:
-            breakpoint()
-            raise NotImplementedError()
+            raise NotImplementedError(self.state)
 
     def _merge_on_master(self):
         """
@@ -372,7 +369,6 @@ class ReleaseItem(models.Model):
             self.changed_lines = changed_lines
 
     def _collect(self):
-        breakpoint()
         for rec in self:
             ignored_branch_names = rec._get_ignored_branch_names()
             branches = self.env['cicd.git.branch'].search([
