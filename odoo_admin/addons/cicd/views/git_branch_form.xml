@@ -169,7 +169,6 @@
 										<field name="done_date"/>
 										<field name="state"/>
 										<field name="release_type"/>
-										<field name="final_curtain"/>
 										<field name="computed_summary"/>
 									</tree>
 								</field>

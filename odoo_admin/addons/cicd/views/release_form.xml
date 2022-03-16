@@ -38,7 +38,6 @@
 										<field name="name" readonly='1'/>
 										<field name="release_type"/>
 										<field name="branch_branch_ids" widget='many2many_tags' attrs="{'readonly': [('release_type', '!=', 'hotfix')]}"/>
-										<field name="final_curtain"/>
 										<field name="planned_date"/>
 										<field name="done_date" readonly='1'/>
 										<field name="state" readonly='1'/>

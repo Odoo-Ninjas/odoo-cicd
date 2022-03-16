@@ -232,7 +232,7 @@ class GitBranch(models.Model):
             if rec in releases.branch_id:
                 release_items = releases.filtered(
                     lambda x: x.branch_id == rec
-                )
+                ).item_ids
             elif rec in item_branches:
                 release_items = releases.item_ids.filtered(
                     lambda x: x.item_branch_id == rec)
@@ -324,6 +324,7 @@ class GitBranch(models.Model):
                     or not rec.any_testing
                     or commit.force_approved
                     ) and commit.approval_state == 'approved':
+                breakpoint()
 
                 release_items = rec.computed_release_item_ids.mapped(
                     'release_id.next_to_finish_item_id')
@@ -331,8 +332,6 @@ class GitBranch(models.Model):
 
                 if release_items and all(x == 'done' for x in latest_states):
                     state = 'done'
-                elif 'collecting_merge_conflict' in latest_states:
-                    state = 'merge_conflict'
                 elif 'collecting_merge_conflict' in latest_states:
                     state = 'merge_conflict'
                 elif release_items:
