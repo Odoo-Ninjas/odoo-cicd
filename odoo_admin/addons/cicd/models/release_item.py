@@ -169,7 +169,7 @@ class ReleaseItem(models.Model):
         with self.release_id._get_logsio() as logsio:
             logsio.info("Commits changed, so creating a new candidate branch")
             try:
-                branches = ', '.join(self.mapped('branch_ids.name'))
+                branches = ', '.join(self.mapped('branch_ids.branch_id.name'))
                 try:
                     commits = self.mapped('branch_ids.commit_id')
                     repo = self.repo_id
@@ -180,7 +180,8 @@ class ReleaseItem(models.Model):
                         logsio=logsio,
                         make_info_commit_msg=(
                             f"Release Item {self.id}\n"
-                            f"Includes latest commits from:\n{branches}"
+                            "Includes latest commits from:\n"
+                            f"{branches}"
                         )
                     )
                     self.branch_ids.write({'state': 'merged'})
@@ -192,6 +193,9 @@ class ReleaseItem(models.Model):
                                 'state': 'conflict'})
                     self.state = 'collecting_merge_conflict'
                     return
+
+                self.needs_merge = False
+                assert self.item_branch_id
 
             except RetryableJobError:
                 raise
@@ -214,8 +218,6 @@ class ReleaseItem(models.Model):
 
                 self.mapped('branch_ids.branch_id')._compute_state()
 
-        self.needs_merge = False
-        assert self.item_branch_id
 
     @api.fieldchange("branch_ids")
     def _on_change_branches(self, changeset):
@@ -230,12 +232,6 @@ class ReleaseItem(models.Model):
             if rec.state == 'done':
                 raise ValidationError("Cannot set a done release to fail")
             rec.state = 'failed_user'
-
-    def retry(self):
-        for rec in self:
-            if rec.state in ('failed', 'ignore'):
-                rec.state = 'new'
-                rec.log_release = False
 
     def _lock(self):
         try:
@@ -270,6 +266,9 @@ class ReleaseItem(models.Model):
                         self.state = 'failed_too_late'
                     else:
                         self.state = 'integrating'
+
+        elif self.state == 'collecting_merge_conflict':
+            pass
 
         elif self.state == 'integrating':
             # check if test done
@@ -306,6 +305,7 @@ class ReleaseItem(models.Model):
             pass
 
         else:
+            breakpoint()
             raise NotImplementedError()
 
     def _merge_on_master(self):
@@ -385,3 +385,16 @@ class ReleaseItem(models.Model):
                 f"{rec.release_id.branch_id.name}_"
                 f"{rec.id}"
             )
+
+    def retry(self):
+        for rec in self:
+            if rec.state == 'failed_technically':
+                rec.state = 'ready'
+                rec.log_release = False
+
+            elif rec.state == 'collecting_merge_conflict':
+                rec.state = 'collecting'
+                rec.log_release = False
+
+            else:
+                raise NotImplementedError(rec.state)

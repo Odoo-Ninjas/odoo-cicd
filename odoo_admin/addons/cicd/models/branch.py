@@ -96,7 +96,8 @@ class GitBranch(models.Model):
     #     'cicd.release.item',
     #     related='release_branch_ids.item_id', string="Releases")
     computed_release_item_ids = fields.Many2many(
-        'cicd.release.item', "Releases", compute="_compute_releases")
+        'cicd.release.item', "Releases", compute="_compute_releases",
+        search='_search_release_items')
 
     any_testing = fields.Boolean(compute="_compute_any_testing")
     run_unittests = fields.Boolean(
@@ -206,6 +207,9 @@ class GitBranch(models.Model):
             res.remove_web_assets_after_restore = \
                 res.repo_id.remove_web_assets_after_restore
         return res
+
+    def _search_release_items(self, operator, value):
+        raise NotImplementedError()
 
     def _compute_releases(self):
         """

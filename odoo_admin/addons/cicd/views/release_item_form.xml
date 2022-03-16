@@ -10,7 +10,7 @@
 					</header>
 					<sheet>
 						<div class="oe_button_box" name="button_box">
-							<button type="object" class="oe_stat_button" icon="fa-recycle" name="retry" string="Retry" states='failed' />
+							<button type="object" class="oe_stat_button" icon="fa-recycle" name="retry" string="Retry" states='failed_technically,collecting_merge_conflict' />
 						</div>
 						<group>
 							<field name="release_id" readonly="1" />
