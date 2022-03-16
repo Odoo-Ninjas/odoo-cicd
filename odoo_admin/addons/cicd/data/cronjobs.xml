@@ -175,7 +175,8 @@ reasons = [
 	'.git/index.lock',
 	'duplicate key value violates unique constraint "cicd_git_commit_name"',
 	# following happened when using bitbucket - was slow on that day and timed out
-	'Could not read from remote repository', 
+	'Could not read from remote repository',
+	'Lock could not be acquired',
 ]
 for reason in reasons:
 	model.search([('state', '=', 'failed'), ('exc_info', 'ilike', reason)]).write({'state': 'pending'})</field>
