@@ -389,7 +389,7 @@ class Repository(models.Model):
     def _prepare_pulled_branch(self, shell, branch):
         releases = self.env['cicd.release'].search([
             ('repo_id', '=', self.id)])
-        candidate_branch_names = releases.mapped('candidate_branch')
+        candidate_branch_names = releases.item_ids.mapped('item_branch_name')
         try:
             breakpoint()
             logsio = shell.logsio
