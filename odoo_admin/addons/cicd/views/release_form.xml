@@ -36,7 +36,6 @@
 									<tree editable="bottom" create='0' delete='0'>
 										<button name="open_window" string="" icon='fa-external-link' type="object" />
 										<field name="name" readonly='1'/>
-										<field name="try_counter"/>
 										<field name="release_type"/>
 										<field name="branch_ids" widget='many2many_tags' attrs="{'readonly': [('release_type', '!=', 'hotfix')]}"/>
 										<field name="final_curtain"/>
