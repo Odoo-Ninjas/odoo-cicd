@@ -88,18 +88,6 @@ class ReleaseItem(models.Model):
                 rec.planned_maximum_finish_date = start_from.shift(
                     minutes=rec.release_id.minutes_to_release).strftime(DTF)
 
-    @api.constrains("state")
-    def _ensure_one_item_only(self):
-        for rec in self:
-            collecting_states = ['collecting', 'collecting_merge_conflict']
-            if rec.state in collecting_states:
-                if rec.release_id.item_ids.filtered(
-                    lambda x: x.release_type == 'standard' and
-                        x.id != rec.id and x.state in collecting_states):
-
-                    raise ValidationError(
-                        _("There may only be one collecting standard item!"))
-
     def _on_done(self):
         # if not self.changed_lines:
         #     msg = "Nothing new to deploy"
