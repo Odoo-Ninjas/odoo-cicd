@@ -433,3 +433,8 @@ class ReleaseItem(models.Model):
     def _compute_branch_branch_ids(self):
         for rec in self:
             rec.branch_branch_ids = rec.branch_ids.mapped('branch_id')
+
+    def release_now(self):
+        if self.state not in ['collecting', 'ready']:
+            raise ValidationError("Invalid state to switch from.")
+        self.planned_date = fields.Datetime.now()

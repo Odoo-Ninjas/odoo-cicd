@@ -7,6 +7,7 @@
 				<form string="">
 					<header>
 						<field name="state" widget="statusbar" attrs="{'readonly': True}" statusbar_visible="collecting,integrating,ready,done" />
+						<button name="release_now" string="Release Now" type="object" />
 					</header>
 					<sheet>
 						<div class="oe_button_box" name="button_box">
