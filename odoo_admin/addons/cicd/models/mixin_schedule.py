@@ -11,10 +11,12 @@ class Schedule(models.AbstractModel):
     hour = fields.Integer("Hour")
     minute = fields.Integer("Minute")
 
+    @api.model
     def _compute_next_date(self, start_from):
-        for rec in self:
-            test = start_from or arrow.get(start_from) or arrow.get()
-            test = test.replace(hour=self.hour, minute=self.minute)
-            if test < start_from:
-                test = test.shift(days=1)
-            rec.next_date = test.strftime(DTF)
+        test = arrow.get(
+            (start_from and arrow.get(start_from) or arrow.utcnow()).strftime(
+                DTF))
+        test = test.replace(hour=self.hour, minute=self.minute)
+        if test.strftime(DTF) < start_from.strftime(DTF):
+            test = test.shift(days=1)
+        return test.strftime(DTF)

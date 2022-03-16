@@ -277,14 +277,15 @@ class ReleaseItem(models.Model):
         deadline = self.planned_maximum_finish_date
 
         if deadline < now:
+            breakpoint()
             if 'failed_' not in self.state:
                 if self.state not in ['done']:
-                    self.state = 'too_late'
+                    self.state = 'failed_too_late'
                     return
 
         if self.state == 'collecting':
             self._collect()
-            if self.needs_merge:
+            if self.needs_merge or not self.item_branch_id:
                 self.merge()
 
             if self.stop_collecting_at < now:

@@ -7,7 +7,7 @@
 				<form string="">
 					<header>
 						<button string="Make Hotfix" name="make_hotfix" type="object"/>
-						<field name="state" widget="statusbar" />
+						<field name="state" widget="statusbar"  states='failed_technically,collecting_merge_conflict'/>
 					</header>
 					<sheet>
 						<div class="oe_button_box" name="button_box">
