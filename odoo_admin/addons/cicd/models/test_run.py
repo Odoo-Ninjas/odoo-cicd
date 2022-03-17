@@ -502,22 +502,24 @@ class CicdTestRun(models.Model):
         self.env.cr.commit()
 
     def _compute_success_rate(self):
-        for rec in self:
-            lines = rec.mapped('line_ids').filtered(
-                lambda x: x.ttype != 'log')
-            success_lines = len(lines.filtered(
-                lambda x: x.state == 'success' or x.force_success))
-            if lines and all(
-                    x.state == 'success' or x.force_success for x in lines):
-                rec.state = 'success'
-            else:
-                rec.state = 'failed'
-            if not lines or not success_lines:
-                rec.success_rate = 0
-            else:
-                rec.success_rate = \
-                    int(100 / float(len(lines)) * float(success_lines))
-            rec.branch_id._compute_state()
+        self.ensure_one()
+        lines = self.mapped('line_ids').filtered(
+            lambda x: x.ttype != 'log')
+        success_lines = len(lines.filtered(
+            lambda x: x.state == 'success' or x.force_success))
+        qj = self._get_queuejobs('all')
+        failed_qj = bool(qj.filtered(lambda x: x.state == 'failed'))
+        if lines and not failed_qj and all(
+                x.state == 'success' or x.force_success for x in lines):
+            self.state = 'success'
+        else:
+            self.state = 'failed'
+        if not lines or not success_lines:
+            self.success_rate = 0
+        else:
+            self.success_rate = \
+                int(100 / float(len(lines)) * float(success_lines))
+        self.branch_id._compute_state()
 
     @api.constrains('branch_ids')
     def _check_branches(self):
