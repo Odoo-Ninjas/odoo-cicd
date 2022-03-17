@@ -66,8 +66,9 @@ class CicdTestRun(models.Model):
     duration = fields.Integer("Duration [s]", tracking=True)
 
     def abort(self):
-        self.env.cr.commit()
-        self.env.clear()
+        self._get_queuejobs('all').filtered(lambda x: x.state != 'done').write({
+            'state': 'failed'
+        })
         self.do_abort = True
         self.state = 'failed'
 
@@ -311,7 +312,7 @@ class CicdTestRun(models.Model):
 
     def _get_queuejobs(self, ttype):
         assert ttype in ['active', 'all']
-        self.enure_one()
+        self.ensure_one()
         if ttype == 'active':
             domain = [('state', 'not in', ['done'])]
         else:
