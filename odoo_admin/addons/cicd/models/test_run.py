@@ -1,18 +1,30 @@
+from curses import wrapper
 import arrow
 from contextlib import contextmanager
 import base64
 import datetime
 from . import pg_advisory_lock
-from collections import deque
 import traceback
 import time
 from odoo import _, api, fields, models, SUPERUSER_ID, registry
+from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as DTF
 from odoo.addons.queue_job.exception import RetryableJobError
 from odoo.exceptions import ValidationError
 import logging
 from pathlib import Path
+from contextlib import contextmanager
+
 
 MAX_ERROR_SIZE = 100 * 1024 * 1024 * 1024
+
+SETTINGS = (
+    "RUN_POSTGRES=1\n"
+    "DB_HOST=postgres\n"
+    "DB_PORT=5432\n"
+    "DB_USER=odoo\n"
+    "DB_PWD=odoo\n"
+    "ODOO_DEMO=1\n"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +35,6 @@ class AbortException(Exception):
 
 class WrongShaException(Exception):
     pass
-
 
 class CicdTestRun(models.Model):
     _inherit = ['mail.thread', 'cicd.open.window.mixin']
@@ -91,12 +102,6 @@ class CicdTestRun(models.Model):
                     shell, None, logsio, project_name=shell.project_name,
                     settings=settings, commit=self.commit_id.name)
             except Exception as ex:
-                logger.error((
-                    "!!!!!!!!\n"
-                    "!!!!!!!!\n"
-                    "!!!!!!!!\n"
-                    "!!!!!!!!\n"
-                ))
                 logger.error(ex)
                 report(str(ex))
                 report("Exception at reload")
@@ -181,36 +186,33 @@ class CicdTestRun(models.Model):
 
         self._abort_if_required()
 
-    def _finalize_testruns(self, shell, report, logsio):
-        try:
-            report('Finalizing Testing')
-            shell.odoo('kill', allow_error=True)
-            shell.odoo('rm', force=True, allow_error=True)
-            shell.odoo('snap', 'clear')
-            shell.odoo('down', "-v", force=True, allow_error=True)
-            project_dir = shell.cwd
-            with shell.clone(cwd=shell.cwd.parent) as shell:
-                try:
-                    shell.rm(project_dir)
-                except Exception:
-                    msg = f"Failed to remove directory {project_dir}"
-                    if logsio:
-                        logsio.error(msg)
-                    logger.error(msg)
-        finally:
-            if logsio:
-                logsio.stop_keepalive()
+    def _finalize_testruns(self):
+        self = self._with_context()
+        with self._logsio(None) as logsio:
+            self.line_ids = [[0, 0, {
+                'run_id': self.id,
+                'ttype': 'log',
+                'name': 'Finalizing Testing'
+                }]]
+            with self._shell() as shell:
+                shell.odoo('kill', allow_error=True)
+                shell.odoo('rm', force=True, allow_error=True)
+                shell.odoo('snap', 'clear')
+                shell.odoo('down', "-v", force=True, allow_error=True)
+                project_dir = shell.cwd
+                with shell.clone(cwd=shell.cwd.parent) as shell:
+                    try:
+                        shell.rm(project_dir)
+                    except Exception:
+                        msg = f"Failed to remove directory {project_dir}"
+                        if logsio:
+                            logsio.error(msg)
+                        logger.error(msg)
 
     @contextmanager
-    def prepare_run(self, machine, logsio):
-        settings = """
-RUN_POSTGRES=1
-DB_HOST=postgres
-DB_PORT=5432
-DB_USER=odoo
-DB_PWD=odoo
-ODOO_DEMO=1
-        """
+    def prepare_run(self):
+        settings = SETTINGS
+        self = self._with_context()
 
         def report(
             msg, state='success', exception=None, duration=None, ttype='log'
@@ -245,41 +247,37 @@ ODOO_DEMO=1
             report.last_report_time = arrow.get()
 
         report("Prepare run...")
-        root = machine._get_volume('source')
-        report(f"Root: {root}")
         started = arrow.get()
         self.date = fields.Datetime.now()
-        project_name = self.branch_id.project_name
-        report(f"Project Name: {project_name}")
-        assert project_name
-        with machine._shell(
-            cwd=root / project_name, logsio=logsio,
-            project_name=project_name
-        ) as shell:
-            try:
-                report("Checking out source code...")
-                self._reload(shell, logsio, settings, report, started, root)
+        with self._logsio(None) as logsio:
+            with self._shell() as shell:
+                try:
+                    report("Checking out source code...")
+                    self._reload(
+                        shell, logsio, settings, report,
+                        started, str(Path(shell.cwd).parent)
+                        )
 
-                report("Checking commit")
-                sha = shell.X(["git", "log", "-n1", "--format=%H"])[
-                    'stdout'].strip()
-                if sha != self.commit_id.name:
-                    raise WrongShaException((
-                        f"checked-out SHA {sha} "
-                        f"not matching test sha {self.commit_id.name}"
-                        ))
-                report("Commit matches")
-            except WrongShaException:
-                pass
+                    report("Checking commit")
+                    sha = shell.X(["git", "log", "-n1", "--format=%H"])[
+                        'stdout'].strip()
+                    if sha != self.commit_id.name:
+                        raise WrongShaException((
+                            f"checked-out SHA {sha} "
+                            f"not matching test sha {self.commit_id.name}"
+                            ))
+                    report("Commit matches")
 
-            except Exception as ex:
-                logger.error(ex)
-                report("Error at reloading the instance / getting source")
-                report(str(ex))
-                raise
+                except WrongShaException:
+                    pass
 
-            report(f"Checked out source code at {shell.cwd}")
-            try:
+                except Exception as ex:
+                    logger.error(ex)
+                    report("Error at reloading the instance / getting source")
+                    report(str(ex))
+                    raise
+
+                report(f"Checked out source code at {shell.cwd}")
                 try:
                     self._prepare_run(shell, report, logsio, started)
                 except RetryableJobError:
@@ -288,21 +286,115 @@ ODOO_DEMO=1
                     duration = arrow.get() - started
                     report("Error occurred", exception=ex, duration=duration)
                     raise
-
-                yield shell
-
-            finally:
-                self._finalize_testruns(shell, report, logsio)
+                else:
+                    self.as_job(
+                        "_preparedone_run_tests", False)._run_tests()
 
     def execute_now(self):
         self.with_context(DEBUG_TESTRUN=True, FORCE_TEST_RUN=True).execute()
         return True
 
+    def _get_qj_marker(self, suffix, afterrun):
+        runtype = '__after_run__' if afterrun else '__run__'
+        return (
+            f"testrun-{self.id}-{runtype}"
+            f"{suffix}"
+        )
+
+    def as_job(self, suffix, afterrun, eta=None):
+        marker = self._get_qj_marker(suffix, afterrun=afterrun)
+        eta = arrow.utcnow().shift(minutes=eta or 0).strftime(DTF)
+        return self.with_delay(
+            identity_key=marker,
+            eta=eta
+            )
+
+    def _get_queuejobs(self, ttype):
+        assert ttype in ['active', 'all']
+        self.enure_one()
+        if ttype == 'active':
+            domain = [('state', 'not in', ['done'])]
+        else:
+            domain = []
+        queuejobs = self.env['queue.job'].search([
+            ('identity_key', 'ilike', self._get_qj_marker("", False)),
+        ] + domain)
+
+        def retryable(job):
+            if job.state != 'failed':
+                return True
+            if 'could not serialize' in (job.exc_info or '').lower():
+                return True
+            return False
+
+        if ttype == 'active':
+            queuejobs = queuejobs.filtered(retryable)
+
+        queuejobs = queuejobs.filtered(
+            lambda x: 'wait_for_finish' not in (x.identity_key or ''))
+        return queuejobs
+
+    @contextmanager
+    def _logsio(self, logsio=None):
+        if logsio:
+            yield logsio
+        else:
+            with self.branch_id._get_new_logsio_instance(
+                    'test-run-execute') as logsio:
+                yield logsio
+
+    def _wait_for_finish(self, task=None):
+        self.ensure_one()
+        if not self.exists():
+            return
+
+        qj = self._get_active_queuejobs()
+        if qj:
+            self.as_job(
+                "wait_for_finish", False, eta=1)._wait_for_finish()
+            return
+
+        with self._logsio(None) as logsio:
+            logsio.info(f"Duration was {self.duration}")
+
+            qj = qj.sorted(lambda x: x.date_created)
+            if qj:
+                self.duration = \
+                        (arrow.utcnow() - arrow.get(qj[0].date_created))\
+                    .total_seconds()
+            else:
+                self.duration = 0
+
+        self.as_job("finalize", True)._finalize_testruns()
+
+        self.as_job("compute_success_rate", True)._compute_success_rate(
+            task=task)
+        self.as_job('inform_developer', True)._inform_developer()
+
+    @contextmanager
+    def _shell(self, logsio=None):
+        with self._logsio(logsio) as logsio:
+            self = self._with_context()
+            machine = self.branch_ids.repo_id.machine
+            root = machine._get_volume('source')
+            project_name = self.branch_id.project_name
+            with machine._shell(
+                cwd=root / project_name, project_name=project_name,
+                logsio=logsio,
+            ) as shell:
+                yield shell
+
     # ----------------------------------------------
     # Entrypoint
     # ----------------------------------------------
     # env['cicd.test.run'].with_context(DEBUG_TESTRUN=True, FORCE_TEST_RUN=True).browse(nr).execute()
-    def execute(self, shell=None, task=None, logsio=None):
+    def execute(self, task=None):
+        self.ensure_one()
+
+        queuejobs = self._get_active_queuejobs()
+        if queuejobs:
+            return
+
         if self.search_count([
             ('commit_id', '=', self.commit_id.id),
             ('state', 'in', ['open', 'running'])
@@ -310,117 +402,67 @@ ODOO_DEMO=1
             self.state = 'omitted'
             return
 
-        with self.branch_id._get_new_logsio_instance(
-                'test-run-execute') as logsio2:
-            if not logsio:
-                logsio = logsio2
-            testrun_context = f"_testrun_{self.id}"
+        self = self._with_context()
 
-            # after logsio, so that logs io projectname is unchanged
-            self = self.with_context(testrun=testrun_context)
-            with pg_advisory_lock(
-                self.env.cr,
-                f"testrun.{self.id}", detailinfo="execute test"
-            ):
-                try:
-                    if self.state not in ('open') and not self.env.context.get(
-                            "FORCE_TEST_RUN"):
-                        return
-                    db_registry = registry(self.env.cr.dbname)
-                    with db_registry.cursor() as cr:
-                        cr.commit()
-                        cr.autocommit(True)
-                        env = api.Environment(cr, SUPERUSER_ID, {})
-                        self = env[self._name].browse(self.id)
-                        self = self.with_context(testrun=testrun_context)
+        # after logsio, so that logs io projectname is unchanged
+        if self.state not in ('open') and not self.env.context.get(
+                "FORCE_TEST_RUN"):
+            return
 
-                        self.ensure_one()
-                        b = self.branch_id
-                        started = arrow.get()
+        self.state = 'open'
+        self.as_job('starting_games', False)._let_the_games_begin()
 
-                        if not b.any_testing:
-                            self.success_rate = 100
-                            self.state = 'success'
-                            b._compute_state()
-                            return
+    def _with_context(self):
+        testrun_context = f"_testrun_{self.id}"
+        self = self.with_context(testrun=testrun_context)
+        return self
 
-                        self.line_ids = [[6, 0, []]]
-                        self.line_ids = [[0, 0, {
-                            'run_id': self.id,
-                            'ttype': 'log',
-                            'name': 'Started'
-                            }]]
-                        self.do_abort = False
-                        self.state = 'running'
+    def _let_the_games_begin(self):
+        self = self._with_context()
 
-                        if shell:
-                            machine = shell.machine
-                        else:
-                            machine = self.branch_id.repo_id.machine_id
+        with self._logsio(None) as logsio:
+            b = self.branch_id
 
-                        data = {
-                            'testrun_id': self.id,
-                            'machine_id': machine.id,
-                            'technical_errors': [],
-                            'run_lines': deque(),
-                        }
+            if not b.any_testing:
+                logsio.info("No testing - so done")
+                self.success_rate = 100
+                self.state = 'success'
+                b._compute_state()
+                return
 
-                        with self.prepare_run(machine, logsio) as shell:
-                            if b.run_unittests:
-                                self._execute(
-                                    shell, logsio, self._run_unit_tests,
-                                    machine, 'test-units')
-                                self.env.cr.commit()
-                            if b.run_robottests:
-                                self._execute(
-                                    shell, logsio, self._run_robot_tests,
-                                    machine, 'test-robot')
-                                self.env.cr.commit()
-                            if b.simulate_install_id:
-                                self._execute(
-                                    shell, logsio, self._run_update_db,
-                                    machine, 'test-migration')
-                                self.env.cr.commit()
+            self.line_ids = [[6, 0, []]]
+            self.line_ids = [[0, 0, {
+                'run_id': self.id,
+                'ttype': 'log',
+                'name': 'Started'
+                }]]
+            self.do_abort = False
+            self.state = 'running'
 
-                        if data['technical_errors']:
-                            for error in data['technical_errors']:
-                                if len(error) > MAX_ERROR_SIZE:
-                                    error = error[-MAX_ERROR_SIZE:]
+            self.prepare_run()
 
-                                data['run_lines'].append({
-                                    'exc_info': error,
-                                    'ttype': 'log',
-                                    'state': 'failed',
-                                })
-                            raise Exception('\n\n\n'.join(map(
-                                str, data['technical_errors'])))
+    def _run_tests(self):
+        self = self._with_context()
+        b = self.branch_id
 
-                        self.duration = (arrow.get() - started).total_seconds()
-                        if logsio:
-                            logsio.info(f"Duration was {self.duration}")
-                        self._compute_success_rate()
-                        self._inform_developer()
-                        self.env.cr.commit()
-                except Exception as ex:
-                    try:
-                        self.flush()
-                        self.env.cr.commit()
-                    except Exception:
-                        pass
+        with self._shell() as shell:
+            logsio = shell.logsio
+            machine = shell.machine
 
-                    logger.error(str(ex))
-                    try:
-                        logsio.error(str(ex))
-                    except Exception:
-                        pass
-
-                    with db_registry.cursor() as cr:
-                        env = api.Environment(cr, SUPERUSER_ID, {})
-                        testrun = env[self._name].browse(self.id)
-                        testrun.state = 'failed'
-                        testrun.branch_id._compute_state()
-                        cr.commit()
-                    raise
+            if b.run_unittests:
+                self._execute(
+                    shell, logsio, self._run_unit_tests,
+                    machine, 'test-units')
+                self.env.cr.commit()
+            if b.run_robottests:
+                self._execute(
+                    shell, logsio, self._run_robot_tests,
+                    machine, 'test-robot')
+                self.env.cr.commit()
+            if b.simulate_install_id:
+                self._execute(
+                    shell, logsio, self._run_update_db,
+                    machine, 'test-migration')
 
     def _execute(self, shell, logsio, run, machine, appendix):
         try:
@@ -506,7 +548,7 @@ ODOO_DEMO=1
             raise ValidationError(
                 _("State of branch does not allow a repeated test run"))
         self = self.sudo()
-        self.state = 'open' # regular cronjob makes task for that
+        self.state = 'open'
         self.success_rate = 0
 
     def _run_create_empty_db(self, shell, task, logsio):

@@ -33,6 +33,10 @@ class LogsIOWriter(object):
         self.tz = os.getenv("TIMEZONE", 'utc')
         self._send(f"+input|{self.stream}|{self.source}")
 
+    def __del__(self):
+        if self.keep_alive_thread:
+            self.keep_alive_thread = False
+
     @contextmanager
     def GET(stream, source, host='cicdlogs', port=6689):
         res = LogsIOWriter(stream=stream, source=source, host=host, port=port)
