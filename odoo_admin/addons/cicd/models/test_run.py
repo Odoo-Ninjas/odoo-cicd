@@ -348,7 +348,7 @@ class CicdTestRun(models.Model):
         if not self.exists():
             return
 
-        qj = self._get_active_queuejobs()
+        qj = self._get_queuejobs('active')
         if qj:
             self.as_job(
                 "wait_for_finish", False, eta=1)._wait_for_finish()
@@ -391,7 +391,7 @@ class CicdTestRun(models.Model):
     def execute(self, task=None):
         self.ensure_one()
 
-        queuejobs = self._get_active_queuejobs()
+        queuejobs = self._get_queuejobs('active')
         if queuejobs:
             return
 
