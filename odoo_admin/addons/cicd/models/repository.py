@@ -13,7 +13,7 @@ from odoo.addons.queue_job.exception import (
 )
 import logging
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as DTF
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 
 logger = logging.getLogger(__name__)
 
@@ -697,8 +697,8 @@ class Repository(models.Model):
 
             branches = branches.filtered(outdated_commits)
 
-            with db_registry.cursor() as cr:
-                env = api.Environment(cr, SUPERUSER_ID)
+            with closing(db_registry.cursor()) as cr:
+                env = api.Environment(cr, SUPERUSER_ID, {})
                 for branch in branches.with_env(env):
                     branch.active = False
             del dt

@@ -56,7 +56,7 @@ class PostgresServer(models.Model):
     def update_databases(self):
         for rec in self:
             db_registry = registry(self.env.cr.dbname)
-            with db_registry.cursor() as odoocr:
+            with closing(db_registry.cursor()) as odoocr:
                 env = api.Environment(odoocr, SUPERUSER_ID, {})
                 rec = rec.with_env(env)
                 with rec._get_conn() as cr:

@@ -1,6 +1,6 @@
 from curses import wrapper
 import arrow
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 import base64
 import datetime
 from . import pg_advisory_lock
@@ -104,8 +104,7 @@ class CicdTestRun(models.Model):
                     settings=settings, commit=self.commit_id.name)
             except Exception as ex:
                 logger.error(ex)
-                self._report(str(ex))
-                self._report("Exception at reload")
+                self._report("Exception at reload", exception=ex)
                 raise
             else:
                 self._report("Reloaded")
@@ -419,6 +418,15 @@ class CicdTestRun(models.Model):
     def _with_context(self):
         testrun_context = f"_testrun_{self.id}"
         self = self.with_context(testrun=testrun_context)
+
+        # lock test run
+        self.env.cr.execute((
+            "select id "
+            "from cicd_test_run "
+            "where id = %s "
+            "for update nowait "
+        ), (self.id,))
+
         return self
 
     def _let_the_games_begin(self):

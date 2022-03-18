@@ -3,7 +3,7 @@ import traceback
 from . import pg_advisory_lock
 import arrow
 import traceback
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 import logging
 from odoo.addons.queue_job.exception import RetryableJobError
 from odoo import _, api, fields, models, SUPERUSER_ID, registry
@@ -110,7 +110,7 @@ class Task(models.Model):
     @contextmanager
     def _new_cursor(self, new_cursor):
         if new_cursor:
-            with self.env.registry.cursor() as cr:
+            with closing(self.env.registry.cursor()) as cr:
                 env2 = api.Environment(cr, SUPERUSER_ID, {})
                 yield env2
         else:
