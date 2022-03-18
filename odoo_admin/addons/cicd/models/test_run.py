@@ -194,6 +194,8 @@ class CicdTestRun(models.Model):
         with self._logsio(None) as logsio:
             self._report("Finalizing Testing")
             with self._shell() as shell:
+                if not shell.exists(shell.cwd):
+                    return
                 shell.odoo('kill', allow_error=True)
                 shell.odoo('rm', force=True, allow_error=True)
                 shell.odoo('snap', 'clear')
