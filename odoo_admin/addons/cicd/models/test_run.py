@@ -6,7 +6,7 @@ import datetime
 from . import pg_advisory_lock
 import traceback
 import time
-from odoo import _, api, fields, models, SUPERUSER_ID, registry
+from odoo import _, api, fields, models
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as DTF
 from odoo.addons.queue_job.exception import RetryableJobError
 from odoo.exceptions import ValidationError
@@ -98,11 +98,11 @@ class CicdTestRun(models.Model):
             else:
                 break
 
-    def _reload(self, shell, logsio, settings, started, root):
+    def _reload(self, shell, settings, root):
         def reload():
             try:
                 self.branch_id._reload(
-                    shell, None, logsio, project_name=shell.project_name,
+                    shell, None, shell.logsio, project_name=shell.project_name,
                     settings=settings, commit=self.commit_id.name)
             except Exception as ex:
                 logger.error(ex)
@@ -110,7 +110,6 @@ class CicdTestRun(models.Model):
                 raise
             else:
                 self._report("Reloaded")
-        logsio.info("Reloading for test run")
         self._report("Reloading for test run")
         try:
             try:
@@ -133,17 +132,14 @@ class CicdTestRun(models.Model):
                         raise RetryableJobError((
                             "Missing commit not arrived "
                             "- retrying later.")) from ex
-                    self._report(
-                        "Error occurred", exception=ex,
-                        duration=arrow.get() - started)
+                    self._report("Error occurred", exception=ex)
                     raise
+
         except RetryableJobError as ex:
-            logsio.error(str(ex))
             self._report("Retrying", exception=ex)
             raise
 
         except Exception as ex:
-            logsio.error(str(ex))
             self._report("Error", exception=ex)
             raise
 
@@ -151,42 +147,44 @@ class CicdTestRun(models.Model):
         if self.do_abort:
             raise AbortException("User aborted")
 
-    def _prepare_run(self, shell, logsio, started):
-        self._abort_if_required()
-        self._report('building')
-        shell.odoo('build')
-        self._report('killing any existing')
-        shell.odoo('kill', allow_error=True)
-        shell.odoo('rm', allow_error=True)
-        self._report('starting postgres')
-        shell.odoo('up', '-d', 'postgres')
+    def _prepare_run(self):
+        started = arrow.utcnow()
+        with self._shell() as shell:
+            self._abort_if_required()
+            self._report('building')
+            shell.odoo('build')
+            self._report('killing any existing')
+            shell.odoo('kill', allow_error=True)
+            shell.odoo('rm', allow_error=True)
+            self._report('starting postgres')
+            shell.odoo('up', '-d', 'postgres')
+
+            self._abort_if_required()
+
+            self._wait_for_postgres(shell)
+            self._report('db reset started')
+            shell.odoo('-f', 'db', 'reset')
+            # required for turn-into-dev
+            shell.odoo('update', 'mail')
+
+            self._abort_if_required()
+            self._report('db reset done')
+
+            self._abort_if_required()
+            self._report("Turning into dev db (change password, set mailserver)")
+            shell.odoo('turn-into-dev')
+
+            self._report("Storing snapshot")
+            shell.odoo('snap', 'save', shell.project_name, force=True)
+            self._wait_for_postgres(shell)
+            self._report("Storing snapshot done")
+            self._report(
+                'preparation done',
+                duration=arrow.utcnow() - started
+            )
 
         self._abort_if_required()
-
-        self._wait_for_postgres(shell)
-        self._report('db reset started')
-        shell.odoo('-f', 'db', 'reset')
-        # required for turn-into-dev
-        shell.odoo('update', 'mail')
-
-        self._abort_if_required()
-        self._report('db reset done')
-
-        self._abort_if_required()
-        self._report("Turning into dev db (change password, set mailserver)")
-        shell.odoo('turn-into-dev')
-
-        self._report("Storing snapshot")
-        shell.odoo('snap', 'save', shell.project_name, force=True)
-        self._wait_for_postgres(shell)
-        self._report("Storing snapshot done")
-        logsio.info("Preparation done")
-        self._report(
-            'preparation done', ttype='log', state='success',
-            duration=(arrow.get() - started).total_seconds()
-        )
-
-        self._abort_if_required()
+        self.as_job("_preparedone_run_tests", False)._run_tests()
 
     def _finalize_testruns(self):
         self = self._with_context()
@@ -249,50 +247,35 @@ class CicdTestRun(models.Model):
         self = self._with_context()
 
         self._report("Prepare run...")
-        started = arrow.get()
         self.date = fields.Datetime.now()
-        with self._logsio(None) as logsio:
-            with self._shell() as shell:
-                try:
-                    self._report("Checking out source code...")
-                    self._reload(
-                        shell, logsio, settings,
-                        started, str(Path(shell.cwd).parent)
-                        )
+        with self._shell() as shell:
+            try:
+                self._report("Checking out source code...")
+                self._reload(
+                    shell, shell.logsio, settings,
+                    str(Path(shell.cwd).parent)
+                    )
 
-                    self._report("Checking commit")
-                    sha = shell.X(["git", "log", "-n1", "--format=%H"])[
-                        'stdout'].strip()
-                    if sha != self.commit_id.name:
-                        raise WrongShaException((
-                            f"checked-out SHA {sha} "
-                            f"not matching test sha {self.commit_id.name}"
-                            ))
-                    self._report("Commit matches")
-
-                except WrongShaException:
-                    pass
-
-                except Exception as ex:
-                    logger.error(ex)
-                    self._report(
-                        "Error at reloading the instance / getting source")
-                    self._report(str(ex))
-                    raise
-
+                self._report("Checking commit")
+                sha = shell.X(["git", "log", "-n1", "--format=%H"])[
+                    'stdout'].strip()
+                if sha != self.commit_id.name:
+                    raise WrongShaException((
+                        f"checked-out SHA {sha} "
+                        f"not matching test sha {self.commit_id.name}"
+                        ))
+                self._report("Commit matches")
                 self._report(f"Checked out source code at {shell.cwd}")
-                try:
-                    self._prepare_run(shell, logsio, started)
-                except RetryableJobError:
-                    raise
-                except Exception as ex:
-                    duration = arrow.get() - started
-                    self._report(
-                        "Error occurred", exception=ex, duration=duration)
-                    raise
-                else:
-                    self.as_job(
-                        "_preparedone_run_tests", False)._run_tests()
+
+            except Exception as ex:
+                logger.error(ex)
+                self._report(
+                    "Error at getting source")
+                self._report(str(ex))
+                raise
+            else:
+                self.as_job('prepare', False)._prepare_run()
+
 
     def execute_now(self):
         self.with_context(DEBUG_TESTRUN=True, FORCE_TEST_RUN=True).execute()
@@ -459,7 +442,7 @@ class CicdTestRun(models.Model):
             self.do_abort = False
             self.state = 'running'
 
-            self.prepare_run()
+            self.as_job('prepare-run', False).prepare_run()
 
     def _run_tests(self):
         self = self._with_context()
