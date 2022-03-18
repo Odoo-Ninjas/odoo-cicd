@@ -96,7 +96,7 @@ class CicdTestRun(models.Model):
             else:
                 break
 
-    def _reload(self, shell, logsio, settings, report, started, root):
+    def _reload(self, shell, logsio, settings, started, root):
         def reload():
             try:
                 self.branch_id._reload(
@@ -104,46 +104,46 @@ class CicdTestRun(models.Model):
                     settings=settings, commit=self.commit_id.name)
             except Exception as ex:
                 logger.error(ex)
-                report(str(ex))
-                report("Exception at reload")
+                self._report(str(ex))
+                self._report("Exception at reload")
                 raise
             else:
-                report("Reloaded")
+                self._report("Reloaded")
         logsio.info("Reloading for test run")
-        report("Reloading for test run")
+        self._report("Reloading for test run")
         try:
             try:
                 reload()
             except RetryableJobError:
-                report("Retryable error occurred at reloading")
+                self._report("Retryable error occurred at reloading")
                 raise
             except Exception as ex:
-                report("Reloading: Exception stage 1 hit")
-                report(str(ex))
+                self._report("Reloading: Exception stage 1 hit")
+                self._report(str(ex))
                 try:
                     if shell.cwd != root:
                         shell.rm(shell.cwd)
                     reload()
                 except RetryableJobError:
-                    report("Retryable error occurred at reloading stage 2")
+                    self._report("Retryable error occurred at reloading stage 2")
                     raise
                 except Exception as ex:
                     if 'reference is not a tree' in str(ex):
                         raise RetryableJobError((
                             "Missing commit not arrived "
                             "- retrying later.")) from ex
-                    report(
+                    self._report(
                         "Error occurred", exception=ex,
                         duration=arrow.get() - started)
                     raise
         except RetryableJobError as ex:
             logsio.error(str(ex))
-            report("Retrying", exception=ex)
+            self._report("Retrying", exception=ex)
             raise
 
         except Exception as ex:
             logsio.error(str(ex))
-            report("Error", exception=ex)
+            self._report("Error", exception=ex)
             raise
 
     def _abort_if_required(self):
@@ -152,35 +152,35 @@ class CicdTestRun(models.Model):
 
     def _prepare_run(self, shell, report, logsio, started):
         self._abort_if_required()
-        report('building')
+        self._report('building')
         shell.odoo('build')
-        report('killing any existing')
+        self._report('killing any existing')
         shell.odoo('kill', allow_error=True)
         shell.odoo('rm', allow_error=True)
-        report('starting postgres')
+        self._report('starting postgres')
         shell.odoo('up', '-d', 'postgres')
 
         self._abort_if_required()
 
         self._wait_for_postgres(shell)
-        report('db reset started')
+        self._report('db reset started')
         shell.odoo('-f', 'db', 'reset')
         # required for turn-into-dev
         shell.odoo('update', 'mail')
 
         self._abort_if_required()
-        report('db reset done')
+        self._report('db reset done')
 
         self._abort_if_required()
-        report("Turning into dev db (change password, set mailserver)")
+        self._report("Turning into dev db (change password, set mailserver)")
         shell.odoo('turn-into-dev')
 
-        report("Storing snapshot")
+        self._report("Storing snapshot")
         shell.odoo('snap', 'save', shell.project_name, force=True)
         self._wait_for_postgres(shell)
-        report("Storing snapshot done")
+        self._report("Storing snapshot done")
         logsio.info("Preparation done")
-        report(
+        self._report(
             'preparation done', ttype='log', state='success',
             duration=(arrow.get() - started).total_seconds()
         )
@@ -190,11 +190,7 @@ class CicdTestRun(models.Model):
     def _finalize_testruns(self):
         self = self._with_context()
         with self._logsio(None) as logsio:
-            self.line_ids = [[0, 0, {
-                'run_id': self.id,
-                'ttype': 'log',
-                'name': 'Finalizing Testing'
-                }]]
+            self._report("Finalizing Testing")
             with self._shell() as shell:
                 shell.odoo('kill', allow_error=True)
                 shell.odoo('rm', force=True, allow_error=True)
@@ -210,56 +206,59 @@ class CicdTestRun(models.Model):
                             logsio.error(msg)
                         logger.error(msg)
 
+    def _report(
+        self, msg, state='success',
+        exception=None, duration=None, ttype='log'
+    ):
+        # if not hasattr(report, 'last_report_time'):
+        #     report.last_report_time = arrow.get()
+        # if duration is None:
+        #     duration = (arrow.get() - report.last_report_time)\
+        #         .total_seconds()
+        # elif isinstance(duration, datetime.timedelta):
+        #     duration = duration.total_seconds()
+
+        ttype = ttype or 'log'
+        data = {
+            'state': state,
+            'name': msg,
+            'ttype': 'preparation',
+            'duration': duration
+        }
+        if exception:
+            state = 'failed'
+            msg = (msg or '') + '\n' + str(exception)
+            data['exc_info'] = str(exception)
+        else:
+            state = state or 'success'
+
+        self.line_ids = [[0, 0, data]]
+        self.env.cr.commit()
+
+        with self._logsio(None) as logsio:
+            if state == 'success':
+                logsio.info(msg)
+            else:
+                logsio.error(msg)
+
     @contextmanager
     def prepare_run(self):
         settings = SETTINGS
         self = self._with_context()
 
-        def report(
-            msg, state='success', exception=None, duration=None, ttype='log'
-        ):
-            if not hasattr(report, 'last_report_time'):
-                report.last_report_time = arrow.get()
-            if duration is None:
-                duration = (arrow.get() - report.last_report_time)\
-                    .total_seconds()
-            elif isinstance(duration, datetime.timedelta):
-                duration = duration.total_seconds()
-            ttype = ttype or 'log'
-            if exception:
-                state = 'failed'
-                msg = (msg or '') + '\n' + str(exception)
-            else:
-                state = state or 'success'
-
-            self.line_ids = [[0, 0, {
-                'state': state,
-                'name': msg,
-                'ttype': 'preparation',
-                'duration': duration
-                }]]
-            self.env.cr.commit()
-
-            if logsio:
-                if state == 'success':
-                    logsio.info(msg)
-                else:
-                    logsio.error(msg)
-            report.last_report_time = arrow.get()
-
-        report("Prepare run...")
+        self._report("Prepare run...")
         started = arrow.get()
         self.date = fields.Datetime.now()
         with self._logsio(None) as logsio:
             with self._shell() as shell:
                 try:
-                    report("Checking out source code...")
+                    self._report("Checking out source code...")
                     self._reload(
-                        shell, logsio, settings, report,
+                        shell, logsio, settings,
                         started, str(Path(shell.cwd).parent)
                         )
 
-                    report("Checking commit")
+                    self._report("Checking commit")
                     sha = shell.X(["git", "log", "-n1", "--format=%H"])[
                         'stdout'].strip()
                     if sha != self.commit_id.name:
@@ -267,25 +266,25 @@ class CicdTestRun(models.Model):
                             f"checked-out SHA {sha} "
                             f"not matching test sha {self.commit_id.name}"
                             ))
-                    report("Commit matches")
+                    self._report("Commit matches")
 
                 except WrongShaException:
                     pass
 
                 except Exception as ex:
                     logger.error(ex)
-                    report("Error at reloading the instance / getting source")
-                    report(str(ex))
+                    self._report("Error at reloading the instance / getting source")
+                    self._report(str(ex))
                     raise
 
-                report(f"Checked out source code at {shell.cwd}")
+                self._report(f"Checked out source code at {shell.cwd}")
                 try:
                     self._prepare_run(shell, report, logsio, started)
                 except RetryableJobError:
                     raise
                 except Exception as ex:
                     duration = arrow.get() - started
-                    report("Error occurred", exception=ex, duration=duration)
+                    self._report("Error occurred", exception=ex, duration=duration)
                     raise
                 else:
                     self.as_job(
@@ -340,7 +339,8 @@ class CicdTestRun(models.Model):
         if logsio:
             yield logsio
         else:
-            with self.branch_id._get_new_logsio_instance(
+            with self.branch_id.with_context(
+                testrun="")._get_new_logsio_instance(
                     'test-run-execute') as logsio:
                 yield logsio
 
@@ -376,7 +376,7 @@ class CicdTestRun(models.Model):
     def _shell(self, logsio=None):
         with self._logsio(logsio) as logsio:
             self = self._with_context()
-            machine = self.branch_ids.repo_id.machine
+            machine = self.branch_ids.repo_id.machine_id
             root = machine._get_volume('source')
             project_name = self.branch_id.project_name
             with machine._shell(
@@ -432,11 +432,7 @@ class CicdTestRun(models.Model):
                 return
 
             self.line_ids = [[6, 0, []]]
-            self.line_ids = [[0, 0, {
-                'run_id': self.id,
-                'ttype': 'log',
-                'name': 'Started'
-                }]]
+            self._report("Started")
             self.do_abort = False
             self.state = 'running'
 
@@ -476,31 +472,20 @@ class CicdTestRun(models.Model):
                 msg = traceback.format_exc()
                 if not passed_prepare:
                     duration = (arrow.get() - started).total_seconds()
-                    self.line_ids = [[0, 0, {
-                        'duration': duration,
-                        'exc_info': msg,
-                        'ttype': 'preparation',
-                        'name': "Failed at preparation",
-                        'state': 'failed',
-                    }]]
+                    self._report(
+                        "Failed at preparation", exception=msg,
+                        duration=duration, ttype='preparation'
+                    )
                     self.env.cr.commit()
 
         except Exception as ex:
             msg = traceback.format_exc()
-            self._log_error(str(ex))
-            self._log_error(msg)
+            self._report(msg, exception=ex)
             logger.error(ex)
             logger.error(msg)
             if logsio:
                 logsio.error(ex)
                 logsio.error(msg)
-
-    def _log_error(self, msg):
-        self.line_ids = [[0, 0, {
-            'ttype': 'failed',
-            'name': msg
-        }]]
-        self.env.cr.commit()
 
     def _compute_success_rate(self):
         self.ensure_one()
