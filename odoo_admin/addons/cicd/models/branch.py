@@ -566,16 +566,17 @@ class GitBranch(models.Model):
                     identity_key=f"{branch.latest_commit_id.name}-run-tests"
                     )._run_tests()
 
-        # revive dead test
-        for running in self.env['cicd.test.run'].search([
-                ('state', '=', 'running')]):
-            # check if task exists and has an active queuejob
-            tasks = self.env['cicd.task'].search([
-                ('testrun_id', '=', running.id)])
-            tasks = tasks.filtered(lambda x: x.queue_job_id.state in [
-                'started', 'enqueued', 'pending'])
-            if not tasks:
-                running.state = 'open'
+        # # revive dead test
+        # using queuejobs now not needed
+        # for running in self.env['cicd.test.run'].search([
+        #         ('state', '=', 'running')]):
+        #     # check if task exists and has an active queuejob
+        #     tasks = self.env['cicd.task'].search([
+        #         ('testrun_id', '=', running.id)])
+        #     tasks = tasks.filtered(lambda x: x.queue_job_id.state in [
+        #         'started', 'enqueued', 'pending'])
+        #     if not tasks:
+        #         running.state = 'open'
 
         def kf(x):
             return x.branch_id
@@ -588,7 +589,8 @@ class GitBranch(models.Model):
             if not tests:
                 continue
             branch.with_delay(
-                identity_key=f"{branch.latest_commit_id.name}-run-tests")._run_tests(testrun_id=tests[0].id)
+                identity_key=f"{branch.latest_commit_id.name}-run-tests")._run_tests(
+                    testrun_id=tests[0].id)
             tests[1:].write({'state': 'omitted'})
 
     def _trigger_rebuild_after_fetch(self):

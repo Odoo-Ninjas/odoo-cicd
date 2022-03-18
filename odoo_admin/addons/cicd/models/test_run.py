@@ -428,6 +428,8 @@ class CicdTestRun(models.Model):
     def _with_context(self):
         testrun_context = f"_testrun_{self.id}"
         self = self.with_context(testrun=testrun_context)
+        if self.state != 'running':
+            self.state = 'running'
 
         # lock test run
         self.env.cr.execute((
@@ -471,12 +473,10 @@ class CicdTestRun(models.Model):
                 self._execute(
                     shell, logsio, self._run_unit_tests,
                     machine, 'test-units')
-                self.env.cr.commit()
             if b.run_robottests:
                 self._execute(
                     shell, logsio, self._run_robot_tests,
                     machine, 'test-robot')
-                self.env.cr.commit()
             if b.simulate_install_id:
                 self._execute(
                     shell, logsio, self._run_update_db,
@@ -497,7 +497,6 @@ class CicdTestRun(models.Model):
                         "Failed at preparation", exception=msg,
                         duration=duration, ttype='preparation'
                     )
-                    self.env.cr.commit()
 
         except Exception as ex:
             msg = traceback.format_exc()
@@ -714,7 +713,6 @@ class CicdTestRun(models.Model):
                     break
 
             self.line_ids = [[0, 0, data]]
-            self.env.cr.commit()
         return success
 
     def _inform_developer(self):
