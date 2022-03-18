@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 KEEP_ALIVE_MESSAGE = "Keep alive signal - still working"
 
+
 class LogsIOWriter(object):
     def __init__(self, stream, source, host='cicdlogs', port=6689):
         if isinstance(stream, dict):
