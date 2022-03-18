@@ -150,6 +150,9 @@ class CicdTestRun(models.Model):
             raise AbortException("User aborted")
 
     def _prepare_run(self):
+        self = self._with_context()
+        self._switch_to_running_state()
+
         started = arrow.utcnow()
         with self._shell() as shell:
             self._abort_if_required()
@@ -250,6 +253,7 @@ class CicdTestRun(models.Model):
     def prepare_run(self):
         settings = SETTINGS
         self = self._with_context()
+        self._switch_to_running_state()
 
         self._report("Prepare run...")
         self.date = fields.Datetime.now()
@@ -417,13 +421,20 @@ class CicdTestRun(models.Model):
         self._trigger_wait_for_finish()
         self.as_job('starting_games', False)._let_the_games_begin()
 
-    def _with_context(self):
-        testrun_context = f"_testrun_{self.id}"
-        self = self.with_context(testrun=testrun_context)
+    def _switch_to_running_state(self):
+        """
+        Should be called by methods that to work on test runs.
+        If a queuejob is revived then the state of the test run should
+        represent this.
+        """
         if self.state != 'running':
             self.state = 'running'
 
         self._trigger_wait_for_finish()
+
+    def _with_context(self):
+        testrun_context = f"_testrun_{self.id}"
+        self = self.with_context(testrun=testrun_context)
 
         # lock test run
         self.env.cr.execute((
@@ -437,6 +448,7 @@ class CicdTestRun(models.Model):
 
     def _let_the_games_begin(self):
         self = self._with_context()
+        self._switch_to_running_state()
 
         with self._logsio(None) as logsio:
             b = self.branch_id
@@ -457,6 +469,8 @@ class CicdTestRun(models.Model):
 
     def _run_tests(self):
         self = self._with_context()
+        self._switch_to_running_state()
+
         b = self.branch_id
 
         with self._shell() as shell:
