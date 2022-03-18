@@ -313,6 +313,7 @@ class Cursor(BaseCursor):
                 _logger.error("bad query: %s\nERROR: %s", tools.ustr(self._obj.query or query), e)
             msg = (
                 f"{query}\n"
+                f"{params}\n"
                 f"{e}"
             )
             raise Exception(msg) from e

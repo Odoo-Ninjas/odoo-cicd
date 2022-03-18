@@ -66,9 +66,11 @@ class CicdTestRun(models.Model):
     duration = fields.Integer("Duration [s]", tracking=True)
 
     def abort(self):
-        self._get_queuejobs('all').filtered(lambda x: x.state != 'done').write({
-            'state': 'failed'
-        })
+        for qj in self._get_queuejobs('all'):
+            self.env.cr.execute((
+                "update queue_job set state = 'failed' "
+                "where id=%s "
+            ), (qj['id'],))
         self.do_abort = True
         self.state = 'failed'
 
@@ -315,25 +317,33 @@ class CicdTestRun(models.Model):
         assert ttype in ['active', 'all']
         self.ensure_one()
         if ttype == 'active':
-            domain = [('state', 'not in', ['done'])]
+            domain = " state not in ('done') "
         else:
-            domain = []
-        queuejobs = self.env['queue.job'].search([
-            ('identity_key', 'ilike', self._get_qj_marker("", False)),
-        ] + domain)
+            domain = " 1 = 1 "
+
+        # TODO safe
+        marker = self._get_qj_marker("", False)
+        domain += f" AND identity_key ilike '%{marker}%'"
+        self.env.cr.execute((
+            "select id, state, exc_info, identity_key "
+            "from queue_job "
+            "where " + domain
+        ))
+        queuejobs = self.env.cr.dictfetchall()
 
         def retryable(job):
-            if job.state != 'failed':
+            if job['state'] != 'failed':
                 return True
-            if 'could not serialize' in (job.exc_info or '').lower():
+            if 'could not serialize' in (job['exc_info'] or '').lower():
                 return True
             return False
 
         if ttype == 'active':
-            queuejobs = queuejobs.filtered(retryable)
+            queuejobs = [x for x in queuejobs if retryable(x)]
 
-        queuejobs = queuejobs.filtered(
-            lambda x: 'wait_for_finish' not in (x.identity_key or ''))
+        queuejobs = [
+            x for x in queuejobs
+            if 'wait_for_finish' not in (x['identity_key'] or '')]
         return queuejobs
 
     @contextmanager
@@ -505,7 +515,7 @@ class CicdTestRun(models.Model):
         success_lines = len(lines.filtered(
             lambda x: x.state == 'success' or x.force_success))
         qj = self._get_queuejobs('all')
-        failed_qj = bool(qj.filtered(lambda x: x.state == 'failed'))
+        failed_qj = bool([x for x in qj if x['state'] == 'failed'])
         if lines and not failed_qj and all(
                 x.state == 'success' or x.force_success for x in lines):
             self.state = 'success'
