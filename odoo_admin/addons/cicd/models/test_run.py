@@ -150,7 +150,7 @@ class CicdTestRun(models.Model):
         if self.do_abort:
             raise AbortException("User aborted")
 
-    def _prepare_run(self, shell, report, logsio, started):
+    def _prepare_run(self, shell, logsio, started):
         self._abort_if_required()
         self._report('building')
         shell.odoo('build')
@@ -217,6 +217,8 @@ class CicdTestRun(models.Model):
         #         .total_seconds()
         # elif isinstance(duration, datetime.timedelta):
         #     duration = duration.total_seconds()
+        if duration and isinstance(duration, datetime.timedelta):
+            duration = duration.total_seconds()
 
         ttype = ttype or 'log'
         data = {
@@ -279,12 +281,13 @@ class CicdTestRun(models.Model):
 
                 self._report(f"Checked out source code at {shell.cwd}")
                 try:
-                    self._prepare_run(shell, report, logsio, started)
+                    self._prepare_run(shell, logsio, started)
                 except RetryableJobError:
                     raise
                 except Exception as ex:
                     duration = arrow.get() - started
-                    self._report("Error occurred", exception=ex, duration=duration)
+                    self._report(
+                        "Error occurred", exception=ex, duration=duration)
                     raise
                 else:
                     self.as_job(
@@ -506,17 +509,6 @@ class CicdTestRun(models.Model):
             self.success_rate = \
                 int(100 / float(len(lines)) * float(success_lines))
         self.branch_id._compute_state()
-
-    @api.constrains('branch_ids')
-    def _check_branches(self):
-        for rec in self:
-            if not rec.branch_ids:
-                continue
-            if not all(
-                x.repo_id == rec.branch_ids[0].repo_id for x in rec.branch_ids
-            ):
-                raise ValidationError(
-                    "Branches must be of the same repository.")
 
     def _compute_name(self):
         for rec in self:
