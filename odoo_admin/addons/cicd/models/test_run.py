@@ -275,7 +275,8 @@ class CicdTestRun(models.Model):
 
                 except Exception as ex:
                     logger.error(ex)
-                    self._report("Error at reloading the instance / getting source")
+                    self._report(
+                        "Error at reloading the instance / getting source")
                     self._report(str(ex))
                     raise
 
