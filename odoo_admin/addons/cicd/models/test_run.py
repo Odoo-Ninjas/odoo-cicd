@@ -72,7 +72,7 @@ class CicdTestRun(models.Model):
                 "update queue_job set state = 'failed' "
                 "where id=%s "
             ), (qj['id'],))
-        self.do_abort = True
+        self.do_abort = False
         self.state = 'failed'
 
     def _wait_for_postgres(self, shell):
@@ -226,7 +226,7 @@ class CicdTestRun(models.Model):
         data = {
             'state': state,
             'name': msg,
-            'ttype': 'preparation',
+            'ttype': ttype,
             'duration': duration
         }
         if exception:
@@ -411,6 +411,7 @@ class CicdTestRun(models.Model):
             return
 
         self.state = 'open'
+        self.do_abort = False
         self._trigger_wait_for_finish()
         self.as_job('starting_games', False)._let_the_games_begin()
 
