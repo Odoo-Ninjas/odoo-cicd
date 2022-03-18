@@ -498,7 +498,7 @@ class CicdTestRun(models.Model):
                 logsio.error(ex)
                 logsio.error(msg)
 
-    def _compute_success_rate(self):
+    def _compute_success_rate(self, task=None):
         self.ensure_one()
         lines = self.mapped('line_ids').filtered(
             lambda x: x.ttype != 'log')
@@ -517,6 +517,11 @@ class CicdTestRun(models.Model):
             self.success_rate = \
                 int(100 / float(len(lines)) * float(success_lines))
         self.branch_id._compute_state()
+        if task:
+            if self.state == 'failed':
+                task.state = 'failed'
+            elif self.state == 'success':
+                task.state = 'success'
 
     def _compute_name(self):
         for rec in self:
