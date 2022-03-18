@@ -358,10 +358,10 @@ class CicdTestRun(models.Model):
         with self._logsio(None) as logsio:
             logsio.info(f"Duration was {self.duration}")
 
-            qj = qj.sorted(lambda x: x.date_created)
+            qj = sorted(qj, key=lambda x: x['date_created'])
             if qj:
                 self.duration = \
-                        (arrow.utcnow() - arrow.get(qj[0].date_created))\
+                        (arrow.utcnow() - arrow.get(qj[0]['date_created']))\
                     .total_seconds()
             else:
                 self.duration = 0
