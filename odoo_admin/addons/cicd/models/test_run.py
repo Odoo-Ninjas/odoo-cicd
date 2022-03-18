@@ -341,6 +341,10 @@ class CicdTestRun(models.Model):
                     'test-run-execute') as logsio:
                 yield logsio
 
+    def _trigger_wait_for_finish(self):
+        self.as_job(
+            "wait_for_finish", False, eta=1)._wait_for_finish()
+
     def _wait_for_finish(self, task=None):
         self.ensure_one()
         if not self.exists():
@@ -348,8 +352,7 @@ class CicdTestRun(models.Model):
 
         qj = self._get_queuejobs('active')
         if qj:
-            self.as_job(
-                "wait_for_finish", False, eta=1)._wait_for_finish()
+            self._trigger_wait_for_finish()
             return
 
         with self._logsio(None) as logsio:
@@ -408,6 +411,7 @@ class CicdTestRun(models.Model):
             return
 
         self.state = 'open'
+        self._trigger_wait_for_finish()
         self.as_job('starting_games', False)._let_the_games_begin()
 
     def _with_context(self):
@@ -415,6 +419,8 @@ class CicdTestRun(models.Model):
         self = self.with_context(testrun=testrun_context)
         if self.state != 'running':
             self.state = 'running'
+
+        self._trigger_wait_for_finish()
 
         # lock test run
         self.env.cr.execute((
