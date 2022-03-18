@@ -36,6 +36,7 @@ class AbortException(Exception):
 class WrongShaException(Exception):
     pass
 
+
 class CicdTestRun(models.Model):
     _inherit = ['mail.thread', 'cicd.open.window.mixin']
     _name = 'cicd.test.run'
@@ -125,7 +126,8 @@ class CicdTestRun(models.Model):
                         shell.rm(shell.cwd)
                     reload()
                 except RetryableJobError:
-                    self._report("Retryable error occurred at reloading stage 2")
+                    self._report(
+                        "Retryable error occurred at reloading stage 2")
                     raise
                 except Exception as ex:
                     if 'reference is not a tree' in str(ex):
@@ -171,7 +173,8 @@ class CicdTestRun(models.Model):
             self._report('db reset done')
 
             self._abort_if_required()
-            self._report("Turning into dev db (change password, set mailserver)")
+            self._report(
+                "Turning into dev db (change password, set mailserver)")
             shell.odoo('turn-into-dev')
 
             self._report("Storing snapshot")
@@ -275,7 +278,6 @@ class CicdTestRun(models.Model):
                 raise
             else:
                 self.as_job('prepare', False)._prepare_run()
-
 
     def execute_now(self):
         self.with_context(DEBUG_TESTRUN=True, FORCE_TEST_RUN=True).execute()
