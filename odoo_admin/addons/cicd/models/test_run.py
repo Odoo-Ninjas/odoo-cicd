@@ -252,7 +252,7 @@ class CicdTestRun(models.Model):
             try:
                 self._report("Checking out source code...")
                 self._reload(
-                    shell, shell.logsio, settings,
+                    shell, settings,
                     str(Path(shell.cwd).parent)
                     )
 
@@ -450,22 +450,21 @@ class CicdTestRun(models.Model):
 
         with self._shell() as shell:
             logsio = shell.logsio
-            machine = shell.machine
 
             if b.run_unittests:
                 self._execute(
                     shell, logsio, self._run_unit_tests,
-                    machine, 'test-units')
+                    'test-units')
             if b.run_robottests:
                 self._execute(
                     shell, logsio, self._run_robot_tests,
-                    machine, 'test-robot')
+                    'test-robot')
             if b.simulate_install_id:
                 self._execute(
                     shell, logsio, self._run_update_db,
-                    machine, 'test-migration')
+                    'test-migration')
 
-    def _execute(self, shell, logsio, run, machine, appendix):
+    def _execute(self, shell, logsio, run, appendix):
         try:
             logsio.info("Running " + appendix)
             passed_prepare = False
