@@ -235,7 +235,6 @@ class CicdTestRun(models.Model):
             state = state or 'success'
 
         self.line_ids = [[0, 0, data]]
-        self.env.cr.commit()
 
         with self._logsio(None) as logsio:
             if state == 'success':
