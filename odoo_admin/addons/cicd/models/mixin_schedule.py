@@ -11,7 +11,7 @@ class Schedule(models.AbstractModel):
     hour = fields.Integer("Hour")
     minute = fields.Integer("Minute")
     
-    def _compute_next_date_grather_now(self, start_from):
+    def _compute_next_date_greater_now(self, start_from):
         d = self._compute_next_date(
             start_from
         )

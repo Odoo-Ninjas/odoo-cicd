@@ -119,7 +119,7 @@ class Release(models.Model):
             if last_item.state in [False, 'ready', 'done'] or \
                     'failed_' in last_item.state:
 
-                planned_date = self._compute_next_date_grather_now(last_item.planned_maximum_finish_date)
+                planned_date = self._compute_next_date_greater_now(last_item.planned_maximum_finish_date)
                 
                 rec.item_ids = [[0, 0, {
                     'planned_date': planned_date,
