@@ -161,7 +161,10 @@ class CicdTestRun(models.Model):
     def _prepare_run(self):
         self = self._with_context()
         self._switch_to_running_state()
-
+        
+        #TODO: add ttype prepartion to _report
+        #TODO: on_success for all _report
+        #TODO: add exec method to do a report and a execute of command use than on_success or on_fail
         started = arrow.utcnow()
         with self._shell() as shell:
             self._checkout_source_code(shell)
@@ -242,7 +245,8 @@ class CicdTestRun(models.Model):
             'state': state,
             'name': msg,
             'ttype': ttype,
-            'duration': duration
+            'duration': duration,
+            'run_id': self.id,
         }
         if exception:
             state = 'failed'
@@ -250,8 +254,8 @@ class CicdTestRun(models.Model):
             data['exc_info'] = str(exception)
         else:
             state = state or 'success'
-
-        self.line_ids = [[0, 0, data]]
+        
+        line = self.line_ids.create(data)
         self.env['base'].flush()
         self.env.cr.commit()
 
@@ -260,6 +264,7 @@ class CicdTestRun(models.Model):
                 logsio.info(msg)
             else:
                 logsio.error(msg)
+        return line
 
     def _checkout_source_code(self, shell):
         self._report("Checking out source code...")
@@ -788,7 +793,7 @@ class CicdTestRunLine(models.Model):
         ('log', "Log-Note"),
     ], string="Category")
     name = fields.Char("Name")
-    run_id = fields.Many2one('cicd.test.run', string="Run")
+    run_id = fields.Many2one('cicd.test.run', string="Run", required=True)
     exc_info = fields.Text("Exception Info")
     duration = fields.Integer("Duration")
     state = fields.Selection([
@@ -810,6 +815,14 @@ class CicdTestRunLine(models.Model):
         for rec in self:
             if rec.run_id.state not in ['running']:
                 rec.run_id._compute_success_rate()
+    
+    def on_success(self):
+        now = fields.Datetime.now()
+        for rec in self:
+            if not rec.started or rec.duration:
+                continue
+            duration = (now - started).total_seconds()
+            rec.duration = duration
 
     def robot_results(self):
         return {
