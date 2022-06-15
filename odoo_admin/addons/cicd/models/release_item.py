@@ -49,6 +49,7 @@ class ReleaseItem(models.Model):
             ("failed_too_late", "Failed: too late"),
             ("failed_user", "Failed: by user"),
             ("failed_merge_master", "Failed: merge on master"),
+            ("failed_test_run", "Failed: unsuccessfull test run"),
             ("ready", "Ready"),
             ("done", "Done"),
             ("done_nothing_todo", "Nothing todo"),
@@ -389,6 +390,16 @@ class ReleaseItem(models.Model):
                 ignore_retry=True,
                 seconds=15,
             ) from ex
+    
+    def _latest_test_run_success(self, verbose=False):
+        self.ensure_one()
+        runs = self.item_branch_id.latest_commit_id.test_run_ids
+        success = "success" in runs.mapped("state")
+        if not verbose:
+            return success
+
+        open_runs = runs.filtered(lambda x: x.state not in ["failed", "success"])
+        return success, runs, open_runs
 
     def cron_heartbeat(self):
         self.ensure_one()
@@ -399,7 +410,10 @@ class ReleaseItem(models.Model):
         if deadline and deadline < now:
             if not self.is_failed and not self.is_done:
                 if self.branch_ids:
-                    self.state = "failed_too_late"
+                    if self.state == 'integrating' and not self._latest_test_run_success():
+                        self.state = "failed_test_run"
+                    else:
+                        self.state = "failed_too_late"
                 else:
                     self.state = "done_nothing_todo"
                 return
@@ -444,9 +458,7 @@ class ReleaseItem(models.Model):
 
         elif self.state == "integrating":
             # check if test done
-            runs = self.item_branch_id.latest_commit_id.test_run_ids
-            open_runs = runs.filtered(lambda x: x.state not in ["failed", "success"])
-            success = "success" in runs.mapped("state")
+            success, runs, open_runs = self._latest_test_run_success(True)
 
             if not success and not open_runs:
                 self.release_id.apply_test_settings(self.item_branch_id)
